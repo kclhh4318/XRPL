@@ -5,6 +5,7 @@ interface Card {
   content: string;
   type: 'number' | 'symbol';
   grade: 'gold' | 'silver' | null;
+  hidden?: boolean;  // hidden 속성 추가
 }
 
 const NUMBERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -16,7 +17,8 @@ const GRADE_COLORS = {
   silver: 'bg-gray-400',
 };
 
-const CardComponent: React.FC<Card & { onClick: () => void; selected: boolean; hidden: boolean }> = ({ content, type, grade, onClick, selected, hidden }) => {
+const CardComponent: React.FC<Card & { onClick: () => void; selected: boolean }> = 
+  ({ content, type, grade, onClick, selected, hidden }) => {
   let backgroundColor = 'bg-white';
   if (type === 'number') {
     backgroundColor = grade ? GRADE_COLORS[grade] : 'bg-white';
@@ -24,13 +26,15 @@ const CardComponent: React.FC<Card & { onClick: () => void; selected: boolean; h
   
   return (
     <div 
-      className={`w-16 h-24 rounded-lg shadow-md flex items-center justify-center m-2 cursor-pointer ${backgroundColor} ${selected ? 'ring-2 ring-blue-500' : ''} ${hidden ? 'bg-gray-400' : ''}`}
+      className={`w-16 h-24 rounded-lg shadow-md flex items-center justify-center m-2 cursor-pointer 
+        ${backgroundColor} ${selected ? 'ring-2 ring-blue-500' : ''} ${hidden ? 'bg-gray-400' : ''}`}
       onClick={onClick}
     >
       <span className={`text-4xl font-bold ${hidden ? 'invisible' : ''}`}>{content}</span>
     </div>
   );
 };
+
 
 const MathHighLowGame: React.FC = () => {
   const [deck, setDeck] = useState<Card[]>([]);
@@ -49,6 +53,8 @@ const MathHighLowGame: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number>(90);
   const [myBet, setMyBet] = useState<'high' | 'low' | null>(null);
   const [opponentBet, setOpponentBet] = useState<'high' | 'low' | null>(null);
+  const [showRemoveCardModal, setShowRemoveCardModal] = useState<boolean>(false);
+  const [tempCard, setTempCard] = useState<Card | null>(null);
 
   useEffect(() => {
     if (gamePhase === 'createEquation' && timeLeft > 0) {
@@ -119,30 +125,76 @@ const MathHighLowGame: React.FC = () => {
 
     // Deal hidden card
     let [myHiddenCard, deck1] = drawCard(currentDeck, 'number');
-    setMyHand(prev => [...prev, myHiddenCard]);
+    setMyHand(prev => [...prev, { ...myHiddenCard, hidden: true }]);
     await new Promise(resolve => setTimeout(resolve, 500));
 
     let [opponentHiddenCard, deck2] = drawCard(deck1, 'number');
-    setOpponentHand(prev => [...prev, opponentHiddenCard]);
+    setOpponentHand(prev => [...prev, { ...opponentHiddenCard, hidden: true }]);
     await new Promise(resolve => setTimeout(resolve, 500));
 
     currentDeck = deck2;
 
-    // Deal two open cards
+    // Deal two open cards one by one
     for (let i = 0; i < 2; i++) {
+      setGamePhase(i === 0 ? 'dealOpen1' : 'dealOpen2');
       let [myCard, deck3] = drawCard(currentDeck);
-      setMyHand(prev => [...prev, myCard]);
+      currentDeck = await handleNewCard(myCard, true, deck3);
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      let [opponentCard, deck4] = drawCard(deck3);
-      setOpponentHand(prev => [...prev, opponentCard]);
+      let [opponentCard, deck4] = drawCard(currentDeck);
+      currentDeck = await handleNewCard(opponentCard, false, deck4);
       await new Promise(resolve => setTimeout(resolve, 500));
-
-      currentDeck = deck4;
     }
 
     setDeck(currentDeck);
     setGamePhase('firstBet');
+  };
+
+  const handleNewCard = async (card: Card, isMyCard: boolean, currentDeck: Card[]): Promise<Card[]> => {
+    const setHand = isMyCard ? setMyHand : setOpponentHand;
+    const hand = isMyCard ? myHand : opponentHand;
+
+    if (card.type === 'symbol') {
+      if (card.content === '√') {
+        setHand(prev => [...prev, card]);
+        let [numberCard, newDeck] = drawCard(currentDeck, 'number');
+        setHand(prev => [...prev, numberCard]);
+        return newDeck;
+      } else if (card.content === '×') {
+        if (isMyCard) {
+          setTempCard(card);
+          setShowRemoveCardModal(true);
+          await new Promise<void>(resolve => {
+            const checkInterval = setInterval(() => {
+              if (!showRemoveCardModal) {
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 100);
+          });
+        } else {
+          // Simulate opponent's choice
+          const removableCards = hand.filter(c => ['×', '+', '-'].includes(c.content));
+          if (removableCards.length > 0) {
+            const randomIndex = Math.floor(Math.random() * removableCards.length);
+            setHand(prev => prev.filter(c => c !== removableCards[randomIndex]));
+          }
+        }
+        let [numberCard, newDeck] = drawCard(currentDeck, 'number');
+        setHand(prev => [...prev, numberCard]);
+        return newDeck;
+      }
+    }
+    
+    setHand(prev => [...prev, card]);
+    return currentDeck;
+  };
+
+  const handleRemoveCard = (cardToRemove: Card) => {
+    setMyHand(prev => prev.filter(card => card !== cardToRemove));
+    setMyHand(prev => [...prev, tempCard!]);
+    setShowRemoveCardModal(false);
+    setTempCard(null);
   };
 
   const handleBet = (amount: number) => {
@@ -195,6 +247,7 @@ const MathHighLowGame: React.FC = () => {
     }
   }, [gamePhase]);
 
+  // calculateResult 함수 수정
   const calculateResult = (equation: Card[]): number | null => {
     const equationString = equation.map(card => {
       if (card.content === '√') return 'Math.sqrt';
@@ -202,25 +255,54 @@ const MathHighLowGame: React.FC = () => {
       if (card.content === '×') return '*';
       return card.content;
     }).join('');
+    console.log('Equation string:', equationString);
     try {
       const result = Function(`'use strict'; return (${equationString})`)();
+      console.log('Calculated result:', result);
       return Number.isFinite(result) ? Number(result.toFixed(2)) : null;
     } catch (e) {
+      console.error('Error in calculation:', e);
       return null;
     }
   };
 
+  // handleCreateEquation 함수 수정
   const handleCreateEquation = () => {
+    console.log('My equation:', myEquation);
     const myResult = calculateResult(myEquation);
     setMyResult(myResult);
+    console.log('My result:', myResult);
   
-    // Simulate opponent's equation
-    const opponentEq = opponentHand.slice(0, Math.floor(Math.random() * 3) + 3);
+    // 상대방의 방정식 시뮬레이션 개선
+    const opponentEq = generateValidEquation(opponentHand);
     setOpponentEquation(opponentEq);
+    console.log('Opponent equation:', opponentEq);
     const opponentResult = calculateResult(opponentEq);
     setOpponentResult(opponentResult);
+    console.log('Opponent result:', opponentResult);
   
     setGamePhase('chooseBet');
+  };
+
+  const generateValidEquation = (hand: Card[]): Card[] => {
+    const numbers = hand.filter(card => card.type === 'number');
+    const symbols = hand.filter(card => card.type === 'symbol');
+    
+    let equation: Card[] = [];
+    let numbersUsed = 0;
+    let symbolsUsed = 0;
+  
+    while (equation.length < 5 && numbersUsed < numbers.length && symbolsUsed < symbols.length) {
+      if (equation.length % 2 === 0) {
+        equation.push(numbers[numbersUsed]);
+        numbersUsed++;
+      } else {
+        equation.push(symbols[symbolsUsed]);
+        symbolsUsed++;
+      }
+    }
+  
+    return equation;
   };
 
   const handleChooseBet = (bet: 'high' | 'low') => {
@@ -230,9 +312,20 @@ const MathHighLowGame: React.FC = () => {
     setGamePhase('result');
   };
 
+  // determineWinner 함수 수정
   const determineWinner = (): string => {
-    if (myResult === null || opponentResult === null || myBet === null || opponentBet === null) {
-      return "결과를 계산할 수 없습니다.";
+    console.log('Determining winner...');
+    console.log('My result:', myResult);
+    console.log('Opponent result:', opponentResult);
+    console.log('My bet:', myBet);
+    console.log('Opponent bet:', opponentBet);
+  
+    if (myResult === null && opponentResult === null) {
+      return "두 플레이어 모두 유효한 방정식을 만들지 못했습니다.";
+    } else if (myResult === null) {
+      return "상대방이 이겼습니다. (유효한 방정식 생성)";
+    } else if (opponentResult === null) {
+      return "당신이 이겼습니다! (유효한 방정식 생성)";
     }
 
     const myDiff = myBet === 'high' ? Math.abs(20 - myResult) : Math.abs(1 - myResult);
@@ -360,7 +453,25 @@ const MathHighLowGame: React.FC = () => {
       <div className="text-xl font-bold mb-4">Your Chips: {myChips}</div>
       <div className="text-xl font-bold mb-4">Opponent's Chips: {opponentChips}</div>
       <div className="text-xl font-bold mb-4">Pot: {pot}</div>
-      
+
+      {showRemoveCardModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-4 rounded">
+            <h2 className="text-lg font-bold mb-2">곱하기 카드를 받았습니다. 제거할 카드를 선택하세요:</h2>
+            <div className="flex justify-center">
+              {myHand.filter(card => ['×', '+', '-'].includes(card.content)).map((card, index) => (
+                <CardComponent
+                  key={index}
+                  {...card}
+                  onClick={() => handleRemoveCard(card)}
+                  selected={false}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {gamePhase !== 'init' && (
         <>
           <div className="mb-6">
@@ -372,7 +483,6 @@ const MathHighLowGame: React.FC = () => {
                   {...card}
                   onClick={() => handleCardClick(card)}
                   selected={myEquation.includes(card)}
-                  hidden={index === 3} // Hide the 4th card (index 3) which is the hidden card
                 />
               ))}
             </div>
@@ -387,7 +497,6 @@ const MathHighLowGame: React.FC = () => {
                   {...card}
                   onClick={() => {}}
                   selected={false}
-                  hidden={index === 3} // Hide the 4th card (index 3) which is the opponent's hidden card
                 />
               ))}
             </div>
