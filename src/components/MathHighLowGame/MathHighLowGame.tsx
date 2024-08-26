@@ -36,6 +36,7 @@ const CardComponent: React.FC<Card & { onClick: () => void; selected: boolean }>
 };
 
 
+
 const MathHighLowGame: React.FC = () => {
   const [deck, setDeck] = useState<Card[]>([]);
   const [myHand, setMyHand] = useState<Card[]>([]);
@@ -144,6 +145,18 @@ const MathHighLowGame: React.FC = () => {
       let [opponentCard, deck4] = drawCard(currentDeck);
       currentDeck = await handleNewCard(opponentCard, false, deck4);
       await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Check if both cards are symbols
+      if (myCard.type === 'symbol' && opponentCard.type === 'symbol') {
+        while (true) {
+          let [newCard, newDeck] = drawCard(currentDeck, 'number');
+          currentDeck = newDeck;
+          if (newCard.type === 'number') {
+            currentDeck = await handleNewCard(newCard, i === 0, currentDeck);
+            break;
+          }
+        }
+      }
     }
 
     setDeck(currentDeck);
@@ -152,7 +165,6 @@ const MathHighLowGame: React.FC = () => {
 
   const handleNewCard = async (card: Card, isMyCard: boolean, currentDeck: Card[]): Promise<Card[]> => {
     const setHand = isMyCard ? setMyHand : setOpponentHand;
-    const hand = isMyCard ? myHand : opponentHand;
 
     if (card.type === 'symbol') {
       if (card.content === '√') {
@@ -161,28 +173,7 @@ const MathHighLowGame: React.FC = () => {
         setHand(prev => [...prev, numberCard]);
         return newDeck;
       } else if (card.content === '×') {
-        if (isMyCard) {
-          setTempCard(card);
-          setShowRemoveCardModal(true);
-          await new Promise<void>(resolve => {
-            const checkInterval = setInterval(() => {
-              if (!showRemoveCardModal) {
-                clearInterval(checkInterval);
-                resolve();
-              }
-            }, 100);
-          });
-        } else {
-          // Simulate opponent's choice
-          const removableCards = hand.filter(c => ['×', '+', '-'].includes(c.content));
-          if (removableCards.length > 0) {
-            const randomIndex = Math.floor(Math.random() * removableCards.length);
-            setHand(prev => prev.filter(c => c !== removableCards[randomIndex]));
-          }
-        }
-        let [numberCard, newDeck] = drawCard(currentDeck, 'number');
-        setHand(prev => [...prev, numberCard]);
-        return newDeck;
+        return handleMultiplyCard(card, isMyCard, currentDeck);
       }
     }
     
@@ -190,11 +181,51 @@ const MathHighLowGame: React.FC = () => {
     return currentDeck;
   };
 
+  const handleMultiplyCard = async (card: Card, isMyCard: boolean, currentDeck: Card[]): Promise<Card[]> => {
+    const setHand = isMyCard ? setMyHand : setOpponentHand;
+    const hand = isMyCard ? myHand : opponentHand;
+
+    if (isMyCard) {
+      setTempCard(card);
+      setShowRemoveCardModal(true);
+      await new Promise<void>(resolve => {
+        const checkInterval = setInterval(() => {
+          if (!showRemoveCardModal) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+      });
+    } else {
+      // Simulate opponent's choice
+      const removableCards = hand.filter(c => ['×', '+', '-'].includes(c.content));
+      if (removableCards.length > 0) {
+        const randomIndex = Math.floor(Math.random() * removableCards.length);
+        const removedCard = removableCards[randomIndex];
+        setHand(prev => prev.filter(c => c !== removedCard).concat(card));
+        
+        // Draw a new number card for the opponent
+        let [numberCard, newDeck] = drawCard(currentDeck, 'number');
+        setHand(prev => [...prev, numberCard]);
+        return newDeck;
+      }
+    }
+    
+    // 곱하기 카드만 추가하고, 숫자 카드는 아직 추가하지 않습니다.
+    setHand(prev => [...prev, card]);
+    return currentDeck;
+  };
+
   const handleRemoveCard = (cardToRemove: Card) => {
     setMyHand(prev => prev.filter(card => card !== cardToRemove));
-    setMyHand(prev => [...prev, tempCard!]);
+    // 곱하기 카드는 이미 패에 추가되어 있으므로, 여기서 추가하지 않습니다.
     setShowRemoveCardModal(false);
     setTempCard(null);
+
+    // 새로운 숫자 카드를 뽑아 추가합니다.
+    let [newCard, newDeck] = drawCard(deck, 'number');
+    setMyHand(prev => [...prev, newCard]);
+    setDeck(newDeck);
   };
 
   const handleBet = (amount: number) => {
@@ -220,14 +251,14 @@ const MathHighLowGame: React.FC = () => {
 
   const dealFinalCard = async () => {
     let [myFinalCard, deck1] = drawCard(deck);
-    setMyHand(prev => [...prev, myFinalCard]);
+    let updatedDeck = await handleNewCard(myFinalCard, true, deck1);
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    let [opponentFinalCard, deck2] = drawCard(deck1);
-    setOpponentHand(prev => [...prev, opponentFinalCard]);
+    let [opponentFinalCard, deck2] = drawCard(updatedDeck);
+    updatedDeck = await handleNewCard(opponentFinalCard, false, deck2);
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    setDeck(deck2);
+    setDeck(updatedDeck);
     setGamePhase('finalBet');
   };
 
