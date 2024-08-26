@@ -37,7 +37,9 @@ const MathHighLowGame: React.FC = () => {
   const [myHand, setMyHand] = useState<Card[]>([]);
   const [opponentHand, setOpponentHand] = useState<Card[]>([]);
   const [equation, setEquation] = useState<Card[]>([]);
+  const [opponentEquation, setOpponentEquation] = useState<Card[]>([]); // 상대 수식 추가
   const [result, setResult] = useState<number | null>(null);
+  const [opponentResult, setOpponentResult] = useState<number | null>(null); // 상대 결과 추가
   const [gamePhase, setGamePhase] = useState<'init' | 'dealBase' | 'dealHidden' | 'dealOpen1' | 'dealOpen2' | 'replaceCard' | 'firstBet' | 'dealFinal' | 'create' | 'finalBet' | 'result'>('init');
   const [betAmount, setBetAmount] = useState<number>(0);
   const [chips, setChips] = useState<number>(1000);
@@ -45,6 +47,9 @@ const MathHighLowGame: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number>(30);
   const [specialCardReplacement, setSpecialCardReplacement] = useState<Card | null>(null);
   const [replacementHistory, setReplacementHistory] = useState<string[]>([]);
+  const [waitingForReplacement, setWaitingForReplacement] = useState<boolean>(false);
+  const [myBet, setMyBet] = useState<'high' | 'low' | null>(null); // 하이/로우 선택
+  const [opponentBet, setOpponentBet] = useState<'high' | 'low' | null>(null); // 상대의 베팅
 
   useEffect(() => {
     if (gamePhase !== 'init' && gamePhase !== 'result' && gamePhase !== 'firstBet' && gamePhase !== 'create' && gamePhase !== 'finalBet' && gamePhase !== 'replaceCard') {
@@ -162,24 +167,39 @@ const MathHighLowGame: React.FC = () => {
   };
 
   const dealOpenCard = (round: number) => {
-    const dealToPlayer = (hand: Card[], setHand: React.Dispatch<React.SetStateAction<Card[]>>, otherHand: Card[]) => {
+    const dealToPlayer = (hand: Card[], setHand: React.Dispatch<React.SetStateAction<Card[]>>, otherHand: Card[], isOpponent: boolean) => {
       const card = drawCard([...hand, ...otherHand]);
+      let newCards = [card];
+  
       if (card.content === '√') {
         const numCard = drawCard([...hand, ...otherHand, card], 'number');
-        setHand(prev => [...prev, card, numCard]);
+        newCards.push(numCard);
       } else if (card.content === '×') {
-        setSpecialCardReplacement(card);
-      } else {
-        setHand(prev => [...prev, card]);
+        if (isOpponent) {
+          handleAISpecialCardReplacement([...hand, card], setHand);
+        } else {
+          setSpecialCardReplacement(card);
+          setWaitingForReplacement(true);
+        }
       }
-      return card;
+  
+      setHand(prev => [...prev, ...newCards]);
+      return newCards;
     };
-
-    const myCard = dealToPlayer(myHand, setMyHand, opponentHand);
-    const opponentCard = dealToPlayer(opponentHand, setOpponentHand, myHand);
-
-    if (myCard.content === '×' || opponentCard.content === '×') {
+  
+    const myCards = dealToPlayer(myHand, setMyHand, opponentHand, false);
+    const opponentCards = dealToPlayer(opponentHand, setOpponentHand, [...myHand, ...myCards], true);
+  
+    if (myCards[0].content === '×') {
       setGamePhase('replaceCard');
+    } else if (opponentCards[0].content === '×') {
+      // AI가 자동으로 카드를 교체하므로 별도의 처리 필요 없음
+      if (round === 1) {
+        setGamePhase('dealOpen2');
+      } else {
+        setGamePhase('firstBet');
+        setTimeLeft(30);
+      }
     } else if (round === 1) {
       setGamePhase('dealOpen2');
     } else {
@@ -190,20 +210,44 @@ const MathHighLowGame: React.FC = () => {
 
   const handleSpecialCardReplacement = (cardToDiscard: '+' | '-' | '÷') => {
     if (specialCardReplacement) {
-      setMyHand(prev => prev.map(c => c.content === cardToDiscard ? specialCardReplacement : c));
+      setMyHand(prev => prev.map(c => c.content === cardToDiscard ? specialCardReplacement : c).filter(c => c.content !== '×'));
       setReplacementHistory(prev => [...prev, `You replaced ${cardToDiscard} with ×`]);
       const newCard = drawCard([...myHand, ...opponentHand], 'number');
       setMyHand(prev => [...prev, newCard]);
       setSpecialCardReplacement(null);
-      setGamePhase('dealOpen2');
+      setWaitingForReplacement(false);
+      if (gamePhase === 'replaceCard') {
+        setGamePhase('dealOpen2');
+      }
+    }
+  };
+
+  const handleAISpecialCardReplacement = (hand: Card[], setHand: React.Dispatch<React.SetStateAction<Card[]>>) => {
+    const cardToReplace = hand.find(c => c.content === '+' || c.content === '-' || c.content === '÷');
+    if (cardToReplace) {
+      setHand(prev => prev.map(c => c === cardToReplace ? { content: '×', type: 'symbol' as const, grade: null } : c).filter(c => c.content !== '×'));
+      setReplacementHistory(prev => [...prev, `Opponent replaced ${cardToReplace.content} with ×`]);
+      const newCard = drawCard([...myHand, ...hand], 'number');
+      setHand(prev => [...prev, newCard]);
     }
   };
 
   const dealFinalCard = () => {
-    const finalCard = drawCard([...myHand, ...opponentHand]);
-    setMyHand(prev => [...prev, finalCard]);
-    const opponentFinalCard = drawCard([...myHand, ...opponentHand, finalCard]);
-    setOpponentHand(prev => [...prev, opponentFinalCard]);
+    const dealCardWithRoot = (hand: Card[], otherHand: Card[]): Card[] => {
+      const card = drawCard([...hand, ...otherHand]);
+      if (card.content === '√') {
+        const numCard = drawCard([...hand, ...otherHand, card], 'number');
+        return [card, numCard];
+      }
+      return [card];
+    };
+  
+    const myFinalCards = dealCardWithRoot(myHand, opponentHand);
+    setMyHand(prev => [...prev, ...myFinalCards]);
+  
+    const opponentFinalCards = dealCardWithRoot(opponentHand, [...myHand, ...myFinalCards]);
+    setOpponentHand(prev => [...prev, ...opponentFinalCards]);
+  
     setGamePhase('finalBet');
     setTimeLeft(30);
   };
@@ -261,17 +305,19 @@ const MathHighLowGame: React.FC = () => {
       case 'dealOpen2':
       case 'dealFinal':
         return <div className="text-xl font-bold">Dealing cards...</div>;
-      case 'replaceCard':
-        return (
-          <div className="mt-4 p-4 bg-yellow-100 rounded-lg">
-            <h3 className="text-lg font-semibold mb-2">Replace Special Card</h3>
-            <div className="flex justify-center">
-              <Button onClick={() => handleSpecialCardReplacement('+')} className="mr-2">+</Button>
-              <Button onClick={() => handleSpecialCardReplacement('-')} className="mr-2">-</Button>
-              <Button onClick={() => handleSpecialCardReplacement('÷')}>÷</Button>
+        case 'replaceCard':
+          return waitingForReplacement ? (
+            <div className="mt-4 p-4 bg-yellow-100 rounded-lg">
+              <h3 className="text-lg font-semibold mb-2">Replace Special Card</h3>
+              <div className="flex justify-center">
+                <Button onClick={() => handleSpecialCardReplacement('+')} className="mr-2">+</Button>
+                <Button onClick={() => handleSpecialCardReplacement('-')} className="mr-2">-</Button>
+                <Button onClick={() => handleSpecialCardReplacement('÷')}>÷</Button>
+              </div>
             </div>
-          </div>
-        );
+          ) : (
+            <div className="text-xl font-bold">Waiting for opponent to replace card...</div>
+          );
       case 'firstBet':
       case 'finalBet':
         return (
@@ -333,47 +379,47 @@ const MathHighLowGame: React.FC = () => {
             <div className="flex flex-wrap justify-center">
               {myHand.map((card, index) => (
                 <CardComponent
-                  key={index}
-                  {...card}
-                  onClick={() => handleCardClick(card)}
-                  selected={equation.includes(card)}
-                  hidden={index === 3} // Hide the 4th card (index 3) which is the hidden card
-                />
-              ))}
-            </div>
+                key={index}
+                {...card}
+                onClick={() => handleCardClick(card)}
+                selected={equation.includes(card)}
+                hidden={index === 3} // Hide the 4th card (index 3) which is the hidden card
+              />
+            ))}
           </div>
+        </div>
 
+        <div className="mb-6">
+          <h2 className="text-2xl font-semibold mb-2">Opponent's Hand:</h2>
+          <div className="flex flex-wrap justify-center">
+            {opponentHand.map((card, index) => (
+              <CardComponent
+                key={index}
+                {...card}
+                onClick={() => {}}
+                selected={false}
+                hidden={index === 3} // Hide the 4th card (index 3) which is the opponent's hidden card
+              />
+            ))}
+          </div>
+        </div>
+
+        {replacementHistory.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-2xl font-semibold mb-2">Opponent's Hand:</h2>
-            <div className="flex flex-wrap justify-center">
-              {opponentHand.map((card, index) => (
-                <CardComponent
-                  key={index}
-                  {...card}
-                  onClick={() => {}}
-                  selected={false}
-                  hidden={index === 3} // Hide the 4th card (index 3) which is the opponent's hidden card
-                />
+            <h2 className="text-2xl font-semibold mb-2">Replacement History:</h2>
+            <ul>
+              {replacementHistory.map((history, index) => (
+                <li key={index}>{history}</li>
               ))}
-            </div>
+            </ul>
           </div>
+        )}
+      </>
+    )}
 
-          {replacementHistory.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold mb-2">Replacement History:</h2>
-              <ul>
-                {replacementHistory.map((history, index) => (
-                  <li key={index}>{history}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </>
-      )}
-
-      {renderGamePhase()}
-    </div>
-  );
+    {renderGamePhase()}
+  </div>
+);
 };
 
 export default MathHighLowGame;
