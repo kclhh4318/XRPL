@@ -280,22 +280,44 @@ const MathHighLowGame: React.FC = () => {
 
   // calculateResult 함수 수정
   const calculateResult = (equation: Card[]): number | null => {
-    const equationString = equation.map(card => {
-      if (card.content === '√') return 'Math.sqrt';
-      if (card.content === '÷') return '/';
-      if (card.content === '×') return '*';
-      return card.content;
-    }).join('');
-    console.log('Equation string:', equationString);
     try {
+      let equationString = '';
+      let isSqrt = false;
+  
+      // 수식 문자열 생성
+      equation.forEach((card, index) => {
+        if (card.content === '√') {
+          equationString += 'Math.sqrt(';
+          isSqrt = true;  // 루트 기호 뒤에 숫자를 감싸기 위해 플래그 설정
+        } else {
+          if (isSqrt && card.type === 'number') {
+            equationString += `${card.content})`;  // 루트 기호 뒤의 숫자를 닫아줌
+            isSqrt = false;  // 루트 기호 플래그 리셋
+          } else {
+            if (card.content === '÷') {
+              equationString += '/';
+            } else if (card.content === '×') {
+              equationString += '*';
+            } else {
+              equationString += card.content;
+            }
+          }
+        }
+      });
+  
+      console.log('Equation string:', equationString);
+  
       const result = Function(`'use strict'; return (${equationString})`)();
       console.log('Calculated result:', result);
+      
       return Number.isFinite(result) ? Number(result.toFixed(2)) : null;
     } catch (e) {
       console.error('Error in calculation:', e);
       return null;
     }
   };
+  
+  
 
   // handleCreateEquation 함수 수정
   const handleCreateEquation = () => {
