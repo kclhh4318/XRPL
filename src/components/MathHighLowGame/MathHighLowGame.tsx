@@ -8,7 +8,7 @@ interface Card {
 }
 
 const NUMBERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
-const SYMBOLS = ['√', '×', '+', '-', '÷'];
+const SYMBOLS = ['√', '×'];
 const GRADES: Card['grade'][] = ['gold', 'silver'];
 
 const GRADE_COLORS = {
@@ -42,6 +42,8 @@ const MathHighLowGame: React.FC = () => {
   const [betAmount, setBetAmount] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(30);
   const [specialCardReplacement, setSpecialCardReplacement] = useState<Card | null>(null);
+  const [replacementHistory, setReplacementHistory] = useState<string[]>([]);
+
 
   useEffect(() => {
     if (gamePhase !== 'init' && gamePhase !== 'result' && gamePhase !== 'firstBet' && gamePhase !== 'create' && gamePhase !== 'finalBet' && gamePhase !== 'replaceCard') {
@@ -71,6 +73,9 @@ const MathHighLowGame: React.FC = () => {
   const initializeGame = () => {
     const newDeck: Card[] = createDeck();
     setDeck(newDeck);
+    setMyHand([]);
+    setOpponentHand([]);
+    setReplacementHistory([]);
     setEquation([]);
     setResult(null);
     setBetAmount(0);
@@ -81,16 +86,15 @@ const MathHighLowGame: React.FC = () => {
   const createDeck = (): Card[] => {
     let deck: Card[] = [];
     
-    // 숫자 카드 생성 (각 숫자당 금색, 은색 1장씩)
     NUMBERS.forEach(num => {
       deck.push({ content: num, type: 'number', grade: 'gold' });
       deck.push({ content: num, type: 'number', grade: 'silver' });
     });
 
-    // 기호 카드 추가
-    SYMBOLS.forEach(symbol => {
-      deck.push({ content: symbol, type: 'symbol', grade: null });
-    });
+    for (let i = 0; i < 4; i++) {
+      deck.push({ content: '×', type: 'symbol', grade: null });
+      deck.push({ content: '√', type: 'symbol', grade: null });
+    }
 
     return shuffleArray(deck);
   };
@@ -132,6 +136,32 @@ const MathHighLowGame: React.FC = () => {
     setGamePhase('dealHidden');
   };
 
+  const dealCard = (playerHand: Card[], setPlayerHand: React.Dispatch<React.SetStateAction<Card[]>>, otherPlayerHand: Card[]) => {
+    if (deck.length === 0) return null;
+
+    let card = deck[0];
+    let additionalCard: Card | null = null;
+
+    // Ensure the card is different from the other player's card
+    while (otherPlayerHand.some(c => c.content === card.content && c.grade === card.grade && c.type === 'number')) {
+      setDeck(prev => [...prev.slice(1), prev[0]]);
+      card = deck[0];
+    }
+
+    if (card.content === '√') {
+      additionalCard = deck.find(c => 
+        c.type === 'number' && 
+        !otherPlayerHand.some(oc => oc.content === c.content && oc.grade === c.grade)
+      ) || null;
+    } else if (card.content === '×') {
+      setSpecialCardReplacement(card);
+    }
+    
+    setPlayerHand(prev => [...prev, card, ...(additionalCard ? [additionalCard] : [])]);
+    setDeck(prev => prev.filter(c => c !== card && c !== additionalCard));
+    return { card, additionalCard };
+  };
+
   const dealHiddenCards = () => {
     const myHiddenCard = deck.find(card => card.type === 'number') || deck[0];
     const opponentHiddenCard = deck.find(card => 
@@ -146,33 +176,10 @@ const MathHighLowGame: React.FC = () => {
   };
 
   const dealOpenCard = (round: number) => {
-    const dealCardToPlayer = (playerHand: Card[], setPlayerHand: React.Dispatch<React.SetStateAction<Card[]>>, otherPlayerHand: Card[]) => {
-      let card = deck[0];
-      let additionalCard: Card | null = null;
+    const myCard = dealCard(myHand, setMyHand, opponentHand);
+    const opponentCard = dealCard(opponentHand, setOpponentHand, myHand);
 
-      // Ensure the card is different from the other player's card
-      while (otherPlayerHand.some(c => c.content === card.content && c.grade === card.grade && c.type === 'number')) {
-        card = deck[Math.floor(Math.random() * deck.length)];
-      }
-
-      if (card.content === '√') {
-        additionalCard = deck.find(c => 
-          c.type === 'number' && 
-          !otherPlayerHand.some(oc => oc.content === c.content && oc.grade === c.grade)
-        ) || null;
-      } else if (card.content === '×') {
-        setSpecialCardReplacement(card);
-      }
-      
-      setPlayerHand(prev => [...prev, card, ...(additionalCard ? [additionalCard] : [])]);
-      setDeck(prev => prev.filter(c => c !== card && c !== additionalCard));
-      return { card, additionalCard };
-    };
-
-    const { card: myCard, additionalCard: myAdditionalCard } = dealCardToPlayer(myHand, setMyHand, opponentHand);
-    const { card: opponentCard, additionalCard: opponentAdditionalCard } = dealCardToPlayer(opponentHand, setOpponentHand, [...myHand, myCard, myAdditionalCard].filter(Boolean) as Card[]);
-
-    if (myCard.content === '×' || opponentCard.content === '×') {
+    if (myCard?.card.content === '×' || opponentCard?.card.content === '×') {
       setGamePhase('replaceCard');
     } else if (round === 1) {
       setGamePhase('dealOpen2');
@@ -181,28 +188,39 @@ const MathHighLowGame: React.FC = () => {
     }
   };
 
-  const handleSpecialCardReplacement = (replaceWith: '+' | '-' | '×') => {
+  const handleSpecialCardReplacement = (cardToDiscard: '+' | '-' | '×') => {
     if (specialCardReplacement) {
-      const newCard: Card = deck.find(card => card.type === 'number') || deck[0];
-      const updatedHand = (hand: Card[]) => 
-        hand.map(card => card === specialCardReplacement ? { ...card, content: replaceWith } : card);
-      
-      setMyHand(prev => updatedHand(prev));
-      setOpponentHand(prev => updatedHand(prev));
-      setDeck(prev => prev.filter(card => card !== newCard));
+      const newCard = dealCard(myHand, setMyHand, opponentHand);
+      if (newCard) {
+        setMyHand(prev => prev.filter(c => c.content !== cardToDiscard).concat(newCard.card));
+        if (newCard.additionalCard) {
+          setMyHand(prev => [...prev, newCard.additionalCard!]);
+        }
+      }
       setSpecialCardReplacement(null);
       setGamePhase('dealOpen2');
     }
   };
 
   const dealFinalCard = () => {
-    const finalCard = deck[0];
-    setMyHand(prev => [...prev, finalCard]);
-    setOpponentHand(prev => [...prev, { ...finalCard, grade: Math.random() < 0.3 ? 'gold' : finalCard.grade }]);
-    setDeck(prev => prev.slice(1));
+    let finalCard = deck[0];
+    let additionalCard: Card | null = null;
+    
+    if (finalCard.content === '√') {
+      additionalCard = deck.find(card => card.type === 'number') || null;
+    }
+    
+    setMyHand(prev => [...prev, finalCard, ...(additionalCard ? [additionalCard] : [])]);
+    setOpponentHand(prev => [...prev, 
+      { ...finalCard, grade: Math.random() < 0.3 ? 'gold' : finalCard.grade },
+      ...(additionalCard ? [{ ...additionalCard, grade: Math.random() < 0.3 ? 'gold' : additionalCard.grade }] : [])
+    ]);
+    
+    setDeck(prev => prev.filter(card => card !== finalCard && card !== additionalCard));
     setGamePhase('finalBet');
     setTimeLeft(30);
   };
+
 
   const handleBet = () => {
     if (gamePhase === 'firstBet') {
