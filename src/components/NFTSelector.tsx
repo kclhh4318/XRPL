@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { fetchAndWeightUserNFTs } from './nftWeightingLogic';
 
 interface NFT {
   id: string;
   name: string;
   image: string;
-  floorPrice: number;
   tier: number;
   chips: number;
 }
@@ -19,18 +19,17 @@ const NFTSelector: React.FC<NFTSelectorProps> = ({ setSelectedNFT }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch user's NFTs
     fetchUserNFTs();
   }, []);
 
-  const fetchUserNFTs = () => {
-    // Mock data for demonstration
-    const mockNFTs: NFT[] = [
-      { id: '1', name: 'NFT #1', image: 'https://via.placeholder.com/150', floorPrice: 1000000, tier: 1, chips: 80 },
-      { id: '2', name: 'NFT #2', image: 'https://via.placeholder.com/150', floorPrice: 2000, tier: 2, chips: 50 },
-      { id: '3', name: 'NFT #3', image: 'https://via.placeholder.com/150', floorPrice: 300, tier: 3, chips: 30 },
-    ];
-    setUserNFTs(mockNFTs);
+  const fetchUserNFTs = async () => {
+    try {
+      const weightedNFTs = await fetchAndWeightUserNFTs();
+      setUserNFTs(weightedNFTs);
+    } catch (error) {
+      console.error('Error fetching user NFTs:', error);
+      // Handle error (e.g., show error message to user)
+    }
   };
 
   const handleNFTSelect = (nft: NFT) => {
@@ -50,12 +49,22 @@ const NFTSelector: React.FC<NFTSelectorProps> = ({ setSelectedNFT }) => {
           >
             <img src={nft.image} alt={nft.name} className="w-full h-40 object-cover mb-2" />
             <h3 className="font-semibold">{nft.name}</h3>
-            <p>Floor Price: {nft.floorPrice} XRP</p>
             <p>Tier: {nft.tier}</p>
             <p>Chips: {nft.chips}</p>
           </div>
         ))}
       </div>
+      {userNFTs.length === 0 && (
+        <div className="text-center mt-8">
+          <p>You don't have any NFTs. You'll start with 10 chips.</p>
+          <button 
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
+            onClick={() => handleNFTSelect({ id: '0', name: 'No NFT', image: '', tier: 5, chips: 10 })}
+          >
+            Start Game with 10 Chips
+          </button>
+        </div>
+      )}
     </div>
   );
 };
