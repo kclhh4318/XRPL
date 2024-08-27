@@ -1,42 +1,37 @@
-
-
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import Card from '../components/ui/Card'; // 기존의 Card 컴포넌트 재사용
 
 const Leaderboard = () => {
-  const [leaders, setLeaders] = useState([]);
+  const [players, setPlayers] = useState([]);
 
   useEffect(() => {
-    // 실제 데이터 fetching 로직은 나중에 구현
-    setLeaders([
-      { rank: 1, address: '0x1234...5678', score: 1000, nftWeight: 5 },
-      { rank: 2, address: '0x5678...9012', score: 900, nftWeight: 4 },
-      { rank: 3, address: '0x9012...3456', score: 800, nftWeight: 3 },
-    ]);
+    // 가정된 API 요청으로 리더보드 데이터 가져오기
+    const fetchLeaderboard = async () => {
+      try {
+        const response = await axios.get('/api/leaderboard'); // 실제 API 엔드포인트 필요
+        setPlayers(response.data.players);
+      } catch (error) {
+        console.error('Error fetching leaderboard data:', error);
+      }
+    };
+
+    fetchLeaderboard();
   }, []);
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Leaderboard</h1>
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="p-2 text-left">Rank</th>
-            <th className="p-2 text-left">Address</th>
-            <th className="p-2 text-left">Score</th>
-            <th className="p-2 text-left">NFT Weight</th>
-          </tr>
-        </thead>
-        <tbody>
-          {leaders.map((leader) => (
-            <tr key={leader.rank} className="border-b">
-              <td className="p-2">{leader.rank}</td>
-              <td className="p-2">{leader.address}</td>
-              <td className="p-2">{leader.score}</td>
-              <td className="p-2">{leader.nftWeight}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <h1 className="text-3xl font-bold mb-6">High-Low Game Leaderboard</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {players.map((player, index) => (
+          <Card 
+            key={index} 
+            title={`Rank ${index + 1}: ${player.username}`} 
+            description={`Score: ${player.score}`} 
+            content={`Games Played: ${player.gamesPlayed}`} 
+          />
+        ))}
+      </div>
     </div>
   );
 };
