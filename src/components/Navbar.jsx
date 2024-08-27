@@ -20,7 +20,7 @@ const Navbar = () => {
           <Link to="/collections" className="text-white hover:text-gray-300">Collections</Link>
           <Link to="/leaderboard" className="text-white hover:text-gray-300">Leaderboard</Link>
           <Link to="/swap" className="text-white hover:text-gray-300">Swap</Link>
-          <Link to="/game" className="text-white hover:text-gray-300">Game</Link>
+          <Link to="/select-nft" className="text-white hover:text-gray-300">Game</Link>
           {isConnected ? (
             <Link to="/profile" className="text-white hover:text-gray-300">{walletAddress}</Link>
           ) : (

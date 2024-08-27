@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
 
 interface Card {
@@ -6,6 +7,19 @@ interface Card {
   type: 'number' | 'symbol';
   grade: 'gold' | 'silver' | null;
   hidden?: boolean;  // hidden 속성 추가
+}
+
+interface NFT {
+  id: string;
+  name: string;
+  image: string;
+  floorPrice: number;
+  tier: number;
+  chips: number;
+}
+
+interface MathHighLowGameProps {
+  selectedNFT: NFT | null;
 }
 
 const NUMBERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -34,10 +48,7 @@ const CardComponent: React.FC<Card & { onClick: () => void; selected: boolean }>
   );
 };
 
-
-
-const MathHighLowGame: React.FC = () => {
-  const [deck, setDeck] = useState<Card[]>([]);
+const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  const [deck, setDeck] = useState<Card[]>([]);
   const [myHand, setMyHand] = useState<Card[]>([]);
   const [opponentHand, setOpponentHand] = useState<Card[]>([]);
   const [myEquation, setMyEquation] = useState<Card[]>([]);
@@ -47,14 +58,15 @@ const MathHighLowGame: React.FC = () => {
   const [gamePhase, setGamePhase] = useState<'init' | 'dealBase' | 'dealHidden' | 'dealOpen1' | 'dealOpen2' | 'firstBet' | 'dealFinal' | 'finalBet' | 'createEquation' | 'chooseBet' | 'result'>('init');
   const [myBetAmount, setMyBetAmount] = useState<number>(0);
   const [opponentBetAmount, setOpponentBetAmount] = useState<number>(0);
-  const [myChips, setMyChips] = useState<number>(1000);
-  const [opponentChips, setOpponentChips] = useState<number>(1000);
-  const [pot, setPot] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(90);
   const [myBet, setMyBet] = useState<'high' | 'low' | null>(null);
   const [opponentBet, setOpponentBet] = useState<'high' | 'low' | null>(null);
   const [showRemoveCardModal, setShowRemoveCardModal] = useState<boolean>(false);
   const [tempCard, setTempCard] = useState<Card | null>(null);
+  const [myChips, setMyChips] = useState<number>(0);
+  const [opponentChips, setOpponentChips] = useState<number>(1000);
+  const [pot, setPot] = useState<number>(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (gamePhase === 'createEquation' && timeLeft > 0) {
@@ -64,6 +76,20 @@ const MathHighLowGame: React.FC = () => {
       return () => clearInterval(timer);
     }
   }, [gamePhase, timeLeft]);
+
+  useEffect(() => {
+    if (!selectedNFT) {
+      navigate('/select-nft');
+      return;
+    }
+    setMyChips(selectedNFT.chips);
+    startGame();
+  }, [selectedNFT, navigate]);
+
+  const startGame = () => {
+    // Implement game start logic here
+    // This function will be called automatically when the component mounts
+  };
 
   const initializeGame = () => {
     const newDeck = createDeck();
@@ -500,7 +526,7 @@ const MathHighLowGame: React.FC = () => {
   };
 
   return (
-    <div className="p-4 bg-gray-100 min-h-screen">
+    <div className="container mx-auto p-4">
       <h1 className="text-4xl font-bold mb-6 text-center">Math High-Low Game</h1>
       <div className="text-xl font-bold mb-4">Your Chips: {myChips}</div>
       <div className="text-xl font-bold mb-4">Opponent's Chips: {opponentChips}</div>

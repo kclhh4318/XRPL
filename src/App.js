@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
@@ -8,8 +8,11 @@ import Leaderboard from './pages/Leaderboard';
 import Swap from './pages/Swap';
 import Profile from './pages/Profile';
 import MathHighLowGame from './components/MathHighLowGame/MathHighLowGame';
+import NFTSelector from './components/NFTSelector';
 
 function App() {
+  const [selectedNFT, setSelectedNFT] = useState(null);
+
   return (
     <Router>
       <div className="App">
@@ -21,7 +24,8 @@ function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/swap" element={<Swap />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/game" element={<MathHighLowGame />} />
+          <Route path="/select-nft" element={<NFTSelector setSelectedNFT={setSelectedNFT} />} />
+          <Route path="/game" element={<MathHighLowGame selectedNFT={selectedNFT} />} />
         </Routes>
       </div>
     </Router>
