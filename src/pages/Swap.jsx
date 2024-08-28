@@ -1,69 +1,141 @@
-import React, { useState } from 'react';
-import Button from '../components/ui/Button';
+import React, { useState } from "react";
+import { isInstalled, getAddress, submitTransaction } from "@gemwallet/api";
+import { useWallet } from "../contexts/WalletContext";
+import { swapTokens } from "../utils/swap";
 
-const Swap = () => {
-  const [fromToken, setFromToken] = useState('');
-  const [toToken, setToToken] = useState('');
-  const [amount, setAmount] = useState('');
+function Swap() {
+  const {
+    walletAddress,
+    // disconnectWallet,
+  } = useWallet();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isXRPtoHYB, setIsXRPtoHYB] = useState(true); // true for XRP to HYB, false for HYB to XRP
+  const [fromAmount, setFromAmount] = useState("0.0");
+  const [toAmount, setToAmount] = useState("0.0");
+  const [slippage, setSlippage] = useState("0.5");
+  const [error, setError] = useState(null);
 
-  const handleSwap = () => {
-    // 실제 스왑 로직은 나중에 구현
-    alert(`Swap ${amount} ${fromToken} to ${toToken} will be implemented later`);
+  const handleExchange = () => {
+    setIsXRPtoHYB(!isXRPtoHYB);
+    setFromAmount(toAmount);
+    setToAmount(fromAmount);
+  };
+
+  const handleSwap = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const fromCurrency = isXRPtoHYB ? "XRP" : "HYB";
+      const toCurrency = isXRPtoHYB ? "HYB" : "XRP";
+
+      await swapTokens(fromAmount, fromCurrency, toCurrency, walletAddress);
+
+      setFromAmount("0.0");
+      setToAmount("0.0");
+    } catch (error) {
+      setError("Swap failed. Please try again." + error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Swap Tokens</h1>
-      <div className="max-w-md mx-auto">
-        <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="fromToken">
-            From
-          </label>
-          <select
-            id="fromToken"
-            value={fromToken}
-            onChange={(e) => setFromToken(e.target.value)}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          >
-            <option value="">Select token</option>
-            <option value="ETH">ETH</option>
-            <option value="USDT">USDT</option>
-            <option value="DAI">DAI</option>
-          </select>
+    <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
+      <h1 className="text-2xl font-bold text-purple-800 mb-2">Swap</h1>
+      <p className="text-purple-600 mb-4">Trade tokens in an instant</p>
+
+      {/* <div className="flex justify-end space-x-2 mb-4">
+        <span className="text-yellow-500">💰</span>
+        <span className="text-purple-500">📊</span>
+        <span className="text-purple-500">⚙️</span>
+        <span className="text-purple-500">🕒</span>
+        <span className="text-purple-300">🔄</span>
+      </div> */}
+
+      <div className="bg-purple-100 rounded-lg p-4 mb-2">
+        <div className="flex items-center mb-2">
+          <span className="bg-blue-400 text-white rounded-full p-1 mr-2">
+            {isXRPtoHYB ? "XRP" : "HYB"}
+          </span>
+          <span className="text-purple-800 font-bold">
+            {isXRPtoHYB ? "XRP" : "HYB"}
+          </span>
         </div>
-        <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="toToken">
-            To
-          </label>
-          <select
-            id="toToken"
-            value={toToken}
-            onChange={(e) => setToToken(e.target.value)}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          >
-            <option value="">Select token</option>
-            <option value="ETH">ETH</option>
-            <option value="USDT">USDT</option>
-            <option value="DAI">DAI</option>
-          </select>
-        </div>
-        <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="amount">
-            Amount
-          </label>
-          <input
-            id="amount"
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            placeholder="Enter amount"
-          />
-        </div>
-        <Button onClick={handleSwap} className="w-full">Swap</Button>
+        <input
+          type="number"
+          value={fromAmount}
+          onChange={(e) => setFromAmount(e.target.value)}
+          className="w-full bg-transparent text-right text-2xl"
+          placeholder="0.0"
+        />
       </div>
+
+      <div className="flex justify-center mb-2">
+        <button
+          onClick={handleExchange}
+          className="bg-gray-200 hover:bg-gray-300 rounded-full p-2 transition duration-300"
+        >
+          🔄
+        </button>
+      </div>
+
+      <div className="bg-purple-100 rounded-lg p-4 mb-4">
+        <div className="flex items-center mb-2">
+          <span className="bg-green-400 text-white rounded-full p-1 mr-2">
+            {isXRPtoHYB ? "HYB" : "XRP"}
+          </span>
+          <span className="text-purple-800 font-bold">
+            {isXRPtoHYB ? "HYB" : "XRP"}
+          </span>
+          <span className="ml-auto">📋</span>
+        </div>
+        <input
+          type="number"
+          value={toAmount}
+          onChange={(e) => setToAmount(e.target.value)}
+          className="w-full bg-transparent text-right text-2xl"
+          placeholder="0.0"
+        />
+      </div>
+
+      <div className="flex justify-between items-center mb-4">
+        <span className="text-purple-600">Slippage Tolerance</span>
+        <div className="flex items-center">
+          <input
+            type="number"
+            value={slippage}
+            onChange={(e) => setSlippage(e.target.value)}
+            className="w-16 bg-transparent text-right"
+          />
+          <span className="ml-1">%</span>
+          <span className="ml-2 text-teal-500">✏️</span>
+        </div>
+      </div>
+
+      {/* {!walletAddress && (
+        <button
+          onClick={connectWallet}
+          disabled={isLoading}
+          className="w-full bg-teal-400 text-white py-3 rounded-lg font-bold hover:bg-teal-500 transition duration-300"
+        >
+          {isLoading ? "Connecting..." : "Connect Wallet"}
+        </button>
+      )} */}
+
+      {walletAddress && (
+        <button
+          onClick={handleSwap}
+          disabled={isLoading}
+          className="w-full bg-teal-400 text-white py-3 rounded-lg font-bold hover:bg-teal-500 transition duration-300"
+        >
+          {isLoading ? "Swapping..." : "Swap"}
+        </button>
+      )}
+
+      {error && <p className="text-red-500 mt-4">{error}</p>}
     </div>
   );
-};
+}
 
 export default Swap;
