@@ -21,19 +21,21 @@ const Navbar = () => {
         <Link to="/" className="text-white text-xl font-bold">
           NFT Marketplace
         </Link>
-        <div className="flex items-center space-x-4">
-          <Link to="/collections" className="text-white hover:text-gray-300">
-            Collections
-          </Link>
-          <Link to="/leaderboard" className="text-white hover:text-gray-300">
-            Leaderboard
-          </Link>
-          <Link to="/swap" className="text-white hover:text-gray-300">
-            Swap
-          </Link>
-          <Link to="/select-nft" className="text-white hover:text-gray-300">
-            Game
-          </Link>
+        <div className="flex">
+          <div className="flex items-center space-x-4 mr-4">
+            <Link to="/collections" className="text-white hover:text-gray-300">
+              Collections
+            </Link>
+            <Link to="/leaderboard" className="text-white hover:text-gray-300">
+              Leaderboard
+            </Link>
+            <Link to="/swap" className="text-white hover:text-gray-300">
+              Swap
+            </Link>
+            <Link to="/select-nft" className="text-white hover:text-gray-300">
+              Game
+            </Link>
+          </div>
           {walletAddress ? (
             <Link to="/profile" className="text-white hover:text-gray-300">
               {walletAddress}
