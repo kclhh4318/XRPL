@@ -1,28 +1,20 @@
-import React, { useState } from "react";
+// src/components/Navbar.jsx
+import React from "react";
 import { Link } from "react-router-dom";
-import Button from "./ui/Button";
 import { useWallet } from "../contexts/WalletContext";
 import ConnectWalletButton from "./ConnectWalletButton";
-import { isInstalled, getNetwork, getAddress } from "@gemwallet/api";
 
 const Navbar = () => {
-  const { walletAddress, setWalletAddress } = useWallet();
-
-  const handleConnect = async () => {
-    const addressResponse = await getAddress();
-    if (addressResponse.type === "response") {
-      setWalletAddress(addressResponse.result.address);
-    }
-  };
+  const { walletAddress } = useWallet();
 
   return (
-    <nav className="bg-gray-800 p-4">
+    <nav className="bg-gray-900 p-4">
       <div className="container mx-auto flex justify-between items-center">
         <Link to="/" className="text-white text-xl font-bold">
           NFT Marketplace
         </Link>
-        <div className="flex">
-          <div className="flex items-center space-x-4 mr-4">
+        <div className="flex items-center space-x-6">
+          <div className="flex space-x-4">
             <Link to="/collections" className="text-white hover:text-gray-300">
               Collections
             </Link>
@@ -38,11 +30,10 @@ const Navbar = () => {
           </div>
           {walletAddress ? (
             <Link to="/profile" className="text-white hover:text-gray-300">
-              {walletAddress}
+              {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
             </Link>
           ) : (
-            <ConnectWalletButton onClick={handleConnect} />
-            // <Button onClick={handleConnect}>Connect Wallet</Button>
+            <ConnectWalletButton />
           )}
         </div>
       </div>

@@ -1,32 +1,26 @@
+// src/pages/Home.jsx
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useWallet } from '../contexts/WalletContext';
+import ConnectWalletButton from '../components/ConnectWalletButton';
 
 const Home = () => {
+  const { walletAddress } = useWallet();
+  const navigate = useNavigate();
+
+  if (walletAddress) {
+    navigate('/dashboard');
+    return null;
+  }
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-4xl font-bold mb-6">Welcome to Our NFT Marketplace</h1>
-      <p className="text-xl mb-8">Discover, collect, and trade unique digital assets.</p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Link to="/collections" className="bg-blue-500 text-white p-6 rounded-lg shadow-md hover:bg-blue-600 transition-colors">
-          <h2 className="text-2xl font-semibold mb-2">Browse Collections</h2>
-          <p>Explore our curated NFT collections</p>
-        </Link>
-
-        <Link to="/select-nft" className="bg-green-500 text-white p-6 rounded-lg shadow-md hover:bg-green-600 transition-colors">
-          <h2 className="text-2xl font-semibold mb-2">Play Math High-Low</h2>
-          <p>Select your NFT and test your math skills</p>
-        </Link>
-
-        <Link to="/swap" className="bg-purple-500 text-white p-6 rounded-lg shadow-md hover:bg-purple-600 transition-colors">
-          <h2 className="text-2xl font-semibold mb-2">Token Swap</h2>
-          <p>Easily swap between different tokens and chips</p>
-        </Link>
-
-        <Link to="/leaderboard" className="bg-yellow-500 text-white p-6 rounded-lg shadow-md hover:bg-yellow-600 transition-colors">
-          <h2 className="text-2xl font-semibold mb-2">Leaderboard</h2>
-          <p>See top performers and their NFT weights</p>
-        </Link>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-200 via-purple-200 to-pink-200">
+      <div className="text-center">
+        <h1 className="text-6xl font-bold mb-12">NFT</h1>
+        <p className="text-xl mb-2">Discover, collect and trade</p>
+        <p className="text-xl mb-12">Unique Digital Assets</p>
+        <h2 className="text-7xl font-bold mb-12">Trade Your NFT</h2>
+        <ConnectWalletButton />
       </div>
     </div>
   );

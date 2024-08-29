@@ -3,6 +3,7 @@ import axios from 'axios';
 
 const Collections = () => {
   const [collections, setCollections] = useState([]);
+  const [activeTab, setActiveTab] = useState('trending');
 
   useEffect(() => {
     const fetchCollections = async () => {
@@ -13,13 +14,12 @@ const Collections = () => {
             'x-api-key': process.env.REACT_APP_RESERVOIR_API_KEY
           }
         });
-        console.log(response.data.collections); // 응답 데이터 확인
         setCollections(response.data.collections);
       } catch (error) {
         console.error('Error fetching collection data:', error);
       }
     };
-  
+
     fetchCollections();
   }, []);
 
@@ -27,10 +27,25 @@ const Collections = () => {
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6">NFT Collections Ranking</h1>
       
+      <div className="mb-4">
+      <button
+          className={`mr-4 px-4 py-2 rounded ${activeTab === 'trending' ? 'bg-gray-200' : ''}`}
+          onClick={() => setActiveTab('trending')}
+        >
+          Trending
+        </button>
+        <button
+          className={`px-4 py-2 rounded ${activeTab === 'favorite' ? 'bg-gray-200' : ''}`}
+          onClick={() => setActiveTab('favorite')}
+        >
+          Favorite
+        </button>
+      </div>
+
       <div className="overflow-x-auto">
-        <table className="min-w-full bg-gray-900 text-white">
+        <table className="min-w-full">
           <thead>
-            <tr className="bg-gray-800">
+            <tr className="border-b">
               <th className="py-2 px-4 text-left">#</th>
               <th className="py-2 px-4 text-left">Collection</th>
               <th className="py-2 px-4 text-right">Floor</th>
@@ -43,7 +58,7 @@ const Collections = () => {
           </thead>
           <tbody>
             {collections.map((collection, index) => (
-              <tr key={collection.id} className="border-b border-gray-800">
+              <tr key={collection.id} className="border-b">
                 <td className="py-2 px-4">{index + 1}</td>
                 <td className="py-2 px-4 flex items-center space-x-4">
                   <img src={collection.image} alt={collection.name} className="w-10 h-10 object-cover rounded-md" />

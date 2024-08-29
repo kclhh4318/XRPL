@@ -1,40 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchAndWeightUserNFTs } from './nftWeightingLogic';
 
 interface NFT {
   id: string;
   name: string;
   image: string;
   tier: number;
-  chips: number;
+  maxChips: number;
 }
 
 interface NFTSelectorProps {
   setSelectedNFT: (nft: NFT) => void;
 }
 
+const dummyNFTs: NFT[] = [
+  { id: '1', name: 'Cool Cat #1', image: 'https://via.placeholder.com/150', tier: 1, maxChips: 100 },
+  { id: '2', name: 'Bored Ape #42', image: 'https://via.placeholder.com/150', tier: 2, maxChips: 80 },
+  { id: '3', name: 'Crypto Punk #007', image: 'https://via.placeholder.com/150', tier: 3, maxChips: 60 },
+];
+
 const NFTSelector: React.FC<NFTSelectorProps> = ({ setSelectedNFT }) => {
   const [userNFTs, setUserNFTs] = useState<NFT[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchUserNFTs();
+    // 더미 데이터 사용
+    setUserNFTs(dummyNFTs);
   }, []);
-
-  const fetchUserNFTs = async () => {
-    try {
-      const weightedNFTs = await fetchAndWeightUserNFTs();
-      setUserNFTs(weightedNFTs);
-    } catch (error) {
-      console.error('Error fetching user NFTs:', error);
-      // Handle error (e.g., show error message to user)
-    }
-  };
 
   const handleNFTSelect = (nft: NFT) => {
     setSelectedNFT(nft);
-    navigate('/game');
+    navigate('/join-game');
   };
 
   return (
@@ -49,22 +45,11 @@ const NFTSelector: React.FC<NFTSelectorProps> = ({ setSelectedNFT }) => {
           >
             <img src={nft.image} alt={nft.name} className="w-full h-40 object-cover mb-2" />
             <h3 className="font-semibold">{nft.name}</h3>
-            <p>Tier: {nft.tier}</p>
-            <p>Chips: {nft.chips}</p>
+            <p>24H Tier: {nft.tier}</p>
+            <p>Max Chips: {nft.maxChips}</p>
           </div>
         ))}
       </div>
-      {userNFTs.length === 0 && (
-        <div className="text-center mt-8">
-          <p>You don't have any NFTs. You'll start with 10 chips.</p>
-          <button 
-            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded"
-            onClick={() => handleNFTSelect({ id: '0', name: 'No NFT', image: '', tier: 5, chips: 10 })}
-          >
-            Start Game with 10 Chips
-          </button>
-        </div>
-      )}
     </div>
   );
 };

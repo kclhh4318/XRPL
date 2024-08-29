@@ -9,7 +9,9 @@ import Swap from "./pages/Swap";
 import Profile from "./pages/Profile";
 import MathHighLowGame from "./components/MathHighLowGame/MathHighLowGame";
 import NFTSelector from "./components/NFTSelector";
+import JoinGame from "./pages/JoinGame";
 import { WalletProvider } from "./contexts/WalletContext";
+import InteractiveBackground from './components/InteractiveBackground';
 
 function App() {
   const [selectedNFT, setSelectedNFT] = useState(null);
@@ -18,6 +20,7 @@ function App() {
     <WalletProvider>
       <Router>
         <div className="App">
+        <InteractiveBackground />
           <Navbar />
           <Routes>
             <Route path="/" element={<Home />} />
@@ -30,6 +33,7 @@ function App() {
               path="/select-nft"
               element={<NFTSelector setSelectedNFT={setSelectedNFT} />}
             />
+            <Route path="/join-game" element={<JoinGame />} />
             <Route
               path="/game"
               element={<MathHighLowGame selectedNFT={selectedNFT} />}

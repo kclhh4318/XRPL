@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import Button from '../ui/Button';
 
 interface Card {
   content: string;
   type: 'number' | 'symbol';
-  grade: 'gold' | 'silver' | null;
+  grade: 'gold' | 'silver' | 'bronze' |null;
   hidden?: boolean;  // hidden 속성 추가
 }
 
@@ -19,7 +20,13 @@ interface NFT {
 }
 
 interface MathHighLowGameProps {
-  selectedNFT: NFT | null;
+  selectedNFT: {
+    id: string;
+    name: string;
+    image: string;
+    tier: number;
+    maxChips: number;
+  } | null;
 }
 
 const NUMBERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -28,6 +35,7 @@ const SYMBOLS = ['√', '×'];
 const GRADE_COLORS = {
   gold: 'bg-yellow-500',
   silver: 'bg-gray-400',
+  bronze: 'bg-amber-600'
 };
 
 const CardComponent: React.FC<Card & { onClick: () => void; selected: boolean }> = 
@@ -77,14 +85,14 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
     }
   }, [gamePhase, timeLeft]);
 
+  const location = useLocation();
+
   useEffect(() => {
-    if (!selectedNFT) {
-      navigate('/select-nft');
-      return;
+    if (selectedNFT) {
+      setMyChips(selectedNFT.maxChips);
     }
-    setMyChips(selectedNFT.chips);
-    startGame();
-  }, [selectedNFT, navigate]);
+    initializeGame();
+  }, [selectedNFT]);
 
   const startGame = () => {
     // Implement game start logic here
@@ -102,13 +110,11 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
     setOpponentResult(null);
     setMyBetAmount(0);
     setOpponentBetAmount(0);
-    setMyChips(1000);
     setOpponentChips(1000);
     setPot(0);
     setMyBet(null);
     setOpponentBet(null);
     setGamePhase('dealBase');
-    // dealCards 함수 호출 제거 (useEffect에서 처리)
   };
 
   const createDeck = (): Card[] => {
@@ -116,6 +122,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
     NUMBERS.forEach(num => {
       deck.push({ content: num, type: 'number', grade: 'gold' });
       deck.push({ content: num, type: 'number', grade: 'silver' });
+      deck.push({ content: num, type: 'number', grade: 'bronze' });
     });
     SYMBOLS.forEach(symbol => {
       for (let i = 0; i < 4; i++) {
@@ -367,19 +374,21 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
     const symbols = hand.filter(card => card.type === 'symbol');
     
     let equation: Card[] = [];
-    let numbersUsed = 0;
-    let symbolsUsed = 0;
-  
-    while (equation.length < 5 && numbersUsed < numbers.length && symbolsUsed < symbols.length) {
-      if (equation.length % 2 === 0) {
-        equation.push(numbers[numbersUsed]);
-        numbersUsed++;
-      } else {
-        equation.push(symbols[symbolsUsed]);
-        symbolsUsed++;
+    
+    // 모든 숫자 카드를 사용
+    numbers.forEach(number => {
+      equation.push(number);
+      // 숫자 다음에 기호가 올 수 있으면 기호 추가
+      if (symbols.length > 0 && equation.length < hand.length) {
+        equation.push(symbols.shift()!);
       }
+    });
+    
+    // 남은 기호 카드를 모두 사용
+    while (symbols.length > 0 && equation.length < hand.length) {
+      equation.push(symbols.shift()!);
     }
-  
+    
     return equation;
   };
 
