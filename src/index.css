@@ -2,9 +2,15 @@
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
+@import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+
+.font-raleway {
+  font-family: 'Raleway', sans-serif;
+}
 
 body {
   @apply bg-gradient-to-br from-blue-200 via-purple-200 to-pink-200 min-h-screen;
+  font-family: 'Raleway', sans-serif;
 }
 
 .btn {
