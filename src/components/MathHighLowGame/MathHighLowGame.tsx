@@ -1,22 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLocation } from 'react-router-dom';
 import Button from '../ui/Button';
 
 interface Card {
   content: string;
   type: 'number' | 'symbol';
-  grade: 'gold' | 'silver' | 'bronze' |null;
-  hidden?: boolean;  // hidden 속성 추가
-}
-
-interface NFT {
-  id: string;
-  name: string;
-  image: string;
-  floorPrice: number;
-  tier: number;
-  chips: number;
+  grade: 'gold' | 'silver' | 'bronze' | null;
+  hidden?: boolean;
 }
 
 interface MathHighLowGameProps {
@@ -35,7 +25,7 @@ const SYMBOLS = ['√', '×'];
 const GRADE_COLORS = {
   gold: 'bg-yellow-500',
   silver: 'bg-gray-400',
-  bronze: 'bg-amber-600'
+  bronze: 'bg-amber-600',
 };
 
 const CardComponent: React.FC<Card & { onClick: () => void; selected: boolean }> = 
@@ -56,7 +46,8 @@ const CardComponent: React.FC<Card & { onClick: () => void; selected: boolean }>
   );
 };
 
-const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  const [deck, setDeck] = useState<Card[]>([]);
+const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
+  const [deck, setDeck] = useState<Card[]>([]);
   const [myHand, setMyHand] = useState<Card[]>([]);
   const [opponentHand, setOpponentHand] = useState<Card[]>([]);
   const [myEquation, setMyEquation] = useState<Card[]>([]);
@@ -74,6 +65,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
   const [myChips, setMyChips] = useState<number>(0);
   const [opponentChips, setOpponentChips] = useState<number>(1000);
   const [pot, setPot] = useState<number>(0);
+  const [showOpponentCards, setShowOpponentCards] = useState<boolean>(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -84,20 +76,6 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
       return () => clearInterval(timer);
     }
   }, [gamePhase, timeLeft]);
-
-  const location = useLocation();
-
-  useEffect(() => {
-    if (selectedNFT) {
-      setMyChips(selectedNFT.maxChips);
-    }
-    initializeGame();
-  }, [selectedNFT]);
-
-  const startGame = () => {
-    // Implement game start logic here
-    // This function will be called automatically when the component mounts
-  };
 
   const initializeGame = () => {
     const newDeck = createDeck();
@@ -158,7 +136,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
 
     // Deal hidden card
     let [myHiddenCard, deck1] = drawCard(currentDeck, 'number');
-    setMyHand(prev => [...prev, { ...myHiddenCard, hidden: true }]);
+    setMyHand(prev => [...prev, { ...myHiddenCard, hidden: false }]);  // 내 히든 카드는 항상 보이게 설정
     await new Promise(resolve => setTimeout(resolve, 500));
 
     let [opponentHiddenCard, deck2] = drawCard(deck1, 'number');
@@ -310,21 +288,19 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
     }
   }, [gamePhase]);
 
-  // calculateResult 함수 수정
   const calculateResult = (equation: Card[]): number | null => {
     try {
       let equationString = '';
       let isSqrt = false;
   
-      // 수식 문자열 생성
       equation.forEach((card, index) => {
         if (card.content === '√') {
           equationString += 'Math.sqrt(';
-          isSqrt = true;  // 루트 기호 뒤에 숫자를 감싸기 위해 플래그 설정
+          isSqrt = true;
         } else {
           if (isSqrt && card.type === 'number') {
-            equationString += `${card.content})`;  // 루트 기호 뒤의 숫자를 닫아줌
-            isSqrt = false;  // 루트 기호 플래그 리셋
+            equationString += `${card.content})`;
+            isSqrt = false;
           } else {
             if (card.content === '÷') {
               equationString += '/';
@@ -337,34 +313,21 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
         }
       });
   
-      console.log('Equation string:', equationString);
-  
       const result = Function(`'use strict'; return (${equationString})`)();
-      console.log('Calculated result:', result);
-      
       return Number.isFinite(result) ? Number(result.toFixed(2)) : null;
     } catch (e) {
-      console.error('Error in calculation:', e);
       return null;
     }
   };
-  
-  
 
-  // handleCreateEquation 함수 수정
   const handleCreateEquation = () => {
-    console.log('My equation:', myEquation);
     const myResult = calculateResult(myEquation);
     setMyResult(myResult);
-    console.log('My result:', myResult);
   
-    // 상대방의 방정식 시뮬레이션 개선
     const opponentEq = generateValidEquation(opponentHand);
     setOpponentEquation(opponentEq);
-    console.log('Opponent equation:', opponentEq);
     const opponentResult = calculateResult(opponentEq);
     setOpponentResult(opponentResult);
-    console.log('Opponent result:', opponentResult);
   
     setGamePhase('chooseBet');
   };
@@ -375,16 +338,13 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
     
     let equation: Card[] = [];
     
-    // 모든 숫자 카드를 사용
     numbers.forEach(number => {
       equation.push(number);
-      // 숫자 다음에 기호가 올 수 있으면 기호 추가
       if (symbols.length > 0 && equation.length < hand.length) {
         equation.push(symbols.shift()!);
       }
     });
     
-    // 남은 기호 카드를 모두 사용
     while (symbols.length > 0 && equation.length < hand.length) {
       equation.push(symbols.shift()!);
     }
@@ -394,19 +354,11 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
 
   const handleChooseBet = (bet: 'high' | 'low') => {
     setMyBet(bet);
-    // Simulate opponent's bet
     setOpponentBet(Math.random() > 0.5 ? 'high' : 'low');
     setGamePhase('result');
   };
 
-  // determineWinner 함수 수정
   const determineWinner = (): string => {
-    console.log('Determining winner...');
-    console.log('My result:', myResult);
-    console.log('Opponent result:', opponentResult);
-    console.log('My bet:', myBet);
-    console.log('Opponent bet:', opponentBet);
-  
     if (myResult === null && opponentResult === null) {
       return "두 플레이어 모두 유효한 방정식을 만들지 못했습니다.";
     } else if (myResult === null) {
@@ -419,13 +371,11 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
     const opponentDiff = opponentBet === 'high' ? Math.abs(20 - opponentResult) : Math.abs(1 - opponentResult);
 
     if (myBet === opponentBet) {
-      // 같은 베팅일 경우
       if (myDiff < opponentDiff) {
         return "당신이 이겼습니다!";
       } else if (myDiff > opponentDiff) {
         return "상대방이 이겼습니다.";
       } else {
-        // 동점일 경우 등급 비교
         const myHighestGrade = Math.max(...myEquation.map(card => card.grade === 'gold' ? 2 : card.grade === 'silver' ? 1 : 0));
         const opponentHighestGrade = Math.max(...opponentEquation.map(card => card.grade === 'gold' ? 2 : card.grade === 'silver' ? 1 : 0));
         
@@ -438,7 +388,6 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
         }
       }
     } else {
-      // 다른 베팅일 경우
       if (myDiff < opponentDiff) {
         return "당신이 이겼습니다!";
       } else if (myDiff > opponentDiff) {
@@ -503,25 +452,37 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
         return (
           <div className="text-center mt-4">
             <h2 className="text-2xl font-bold">{determineWinner()}</h2>
-            <div className="mt-4">
-              <h3 className="text-xl font-semibold">Your Equation:</h3>
-              <div className="flex justify-center">
-                {myEquation.map((card, index) => (
-                  <CardComponent key={index} {...card} onClick={() => {}} selected={false} hidden={false} />
-                ))}
+            <div className="flex mt-4 justify-between">
+              <div>
+                <h3 className="text-xl font-semibold">Your Equation:</h3>
+                <div className="flex justify-center">
+                  {myEquation.map((card, index) => (
+                    <CardComponent key={index} {...card} onClick={() => {}} selected={false} hidden={false} />
+                  ))}
+                </div>
+                <div>Result: {myResult !== null ? myResult.toFixed(2) : 'N/A'}</div>
+                <div>Your bet: {myBet}</div>
               </div>
-              <div>Result: {myResult !== null ? myResult.toFixed(2) : 'N/A'}</div>
-              <div>Your bet: {myBet}</div>
-            </div>
-            <div className="mt-4">
-              <h3 className="text-xl font-semibold">Opponent's Equation:</h3>
-              <div className="flex justify-center">
-              {opponentEquation.map((card, index) => (
-                  <CardComponent key={index} {...card} onClick={() => {}} selected={false} hidden={false} />
-                ))}
+              <div>
+                <h3 className="text-xl font-semibold">Opponent's Equation:</h3>
+                <div 
+                  className="flex justify-center"
+                  onMouseEnter={() => setShowOpponentCards(true)}
+                  onMouseLeave={() => setShowOpponentCards(false)}
+                >
+                  {opponentEquation.map((card, index) => (
+                    <CardComponent 
+                      key={index} 
+                      {...card} 
+                      onClick={() => {}} 
+                      selected={false} 
+                      hidden={!showOpponentCards && card.hidden}  // 상대방 히든카드는 보이지 않도록 설정
+                    />
+                  ))}
+                </div>
+                <div>Result: {opponentResult !== null ? opponentResult.toFixed(2) : 'N/A'}</div>
+                <div>Opponent's bet: {opponentBet}</div>
               </div>
-              <div>Result: {opponentResult !== null ? opponentResult.toFixed(2) : 'N/A'}</div>
-              <div>Opponent's bet: {opponentBet}</div>
             </div>
             <div className="mt-4">
               <div>Your chips: {myChips}</div>
@@ -535,11 +496,11 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-4xl font-bold mb-6 text-center">Math High-Low Game</h1>
-      <div className="text-xl font-bold mb-4">Your Chips: {myChips}</div>
-      <div className="text-xl font-bold mb-4">Opponent's Chips: {opponentChips}</div>
-      <div className="text-xl font-bold mb-4">Pot: {pot}</div>
+    <div className="container mx-auto p-4 relative">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold mb-6">Math High-Low Game</h1>
+        <div className="text-xl font-bold mb-4">Pot: {pot}</div>
+      </div>
 
       {showRemoveCardModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
@@ -559,39 +520,65 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {  
         </div>
       )}
 
-      {gamePhase !== 'init' && (
-        <>
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold mb-2">Your Hand:</h2>
-            <div className="flex flex-wrap justify-center">
-              {myHand.map((card, index) => (
-                <CardComponent
-                  key={index}
-                  {...card}
-                  onClick={() => handleCardClick(card)}
-                  selected={myEquation.includes(card)}
-                />
-              ))}
-            </div>
-          </div>
+      <div className="flex">
+        {/* Main Game Area */}
+        <div className="flex-grow">
+          {gamePhase !== 'init' && (
+            <>
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold mb-2">Your Hand:</h2>
+                <div className="flex flex-wrap justify-center">
+                  {myHand.map((card, index) => (
+                    <CardComponent
+                      key={index}
+                      {...card}
+                      onClick={() => handleCardClick(card)}
+                      selected={myEquation.includes(card)}
+                      hidden={card.hidden === true}
+                      />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+          {renderGamePhase()}
+        </div>
 
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold mb-2">Opponent's Hand:</h2>
-            <div className="flex flex-wrap justify-center">
-              {opponentHand.map((card, index) => (
-                <CardComponent
-                  key={index}
-                  {...card}
-                  onClick={() => {}}
-                  selected={false}
-                />
-              ))}
-            </div>
+        {/* Opponent Info and Cards */}
+        <div className="w-1/4 ml-4 p-4 bg-gray-200 rounded-lg shadow-lg relative">
+          <div 
+            className="mb-2 p-2 bg-gray-300 rounded"
+            onMouseEnter={() => setShowOpponentCards(true)}
+            onMouseLeave={() => setShowOpponentCards(false)}
+          >
+            <div className="font-bold text-lg">{selectedNFT?.name}</div>
+            <img src={selectedNFT?.image} alt={selectedNFT?.name} className="w-full h-32 object-cover mt-2 mb-2 rounded"/>
+            <div>Opponent's Chips: {opponentChips}</div>
+            {showOpponentCards && (
+              <div className="absolute bg-white p-4 border rounded shadow-lg z-50" style={{ left: '-100%', width: '300px' }}>
+                <h3 className="font-bold mb-2">Opponent's Cards</h3>
+                <div className="flex flex-wrap">
+                  {opponentHand.map((card, index) => (
+                    <CardComponent
+                      key={index}
+                      {...card}
+                      onClick={() => {}}
+                      selected={false}
+                      hidden={card.hidden}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </>
-      )}
+        </div>
+      </div>
 
-      {renderGamePhase()}
+      <div className="fixed bottom-4 right-4">
+        <Button onClick={() => handleBet(10)}>Fold</Button>
+        <Button onClick={() => handleBet(20)}>Call</Button>
+        <Button onClick={() => handleBet(30)}>Raise</Button>
+      </div>
     </div>
   );
 };
