@@ -77,6 +77,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
   const [pendingMultiplyCard, setPendingMultiplyCard] = useState<Card | null>(null);
   const [showOpponentCards, setShowOpponentCards] = useState<boolean>(false);
   const [isChoosingMultiplyCard, setIsChoosingMultiplyCard] = useState(false);
+  const [cardsToChooseFrom, setCardsToChooseFrom] = useState<Card[]>([]);
 
   useEffect(() => {
     if (gamePhase === 'createEquation' && timeLeft > 0) {
@@ -122,128 +123,167 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
     dealCards(updatedPlayers, newDeck);
   };
 
-  const createDeck = (): Card[] => {
-    let deck: Card[] = [];
-    NUMBERS.forEach(num => {
-      ['gold', 'silver', 'bronze'].forEach(grade => {
+  // 카드 덱 생성 함수 수정
+const createDeck = (): Card[] => {
+  let deck: Card[] = [];
+  const uniqueCards = new Set<string>();
+
+  NUMBERS.forEach(num => {
+    ['gold', 'silver', 'bronze'].forEach(grade => {
+      const cardKey = `${num}-${grade}`;
+      if (!uniqueCards.has(cardKey)) {
         deck.push({ content: num, type: 'number', grade: grade as Card['grade'] });
-      });
+        uniqueCards.add(cardKey);
+      }
     });
-    SYMBOLS.forEach(symbol => {
-      for (let i = 0; i < 4; i++) {
+  });
+
+  SYMBOLS.forEach(symbol => {
+    for (let i = 0; i < 4; i++) {
+      const cardKey = `${symbol}-${i}`;
+      if (!uniqueCards.has(cardKey)) {
         deck.push({ content: symbol, type: 'symbol', grade: null });
+        uniqueCards.add(cardKey);
       }
-    });
-    return shuffleArray(deck);
+    }
+  });
+
+  return shuffleArray(deck);
+};
+
+const removeDuplicateCards = (hand: Card[]): Card[] => {
+  const uniqueCards: Card[] = [];
+  const seenCards = new Set<string>();
+
+  hand.forEach(card => {
+    const cardKey = `${card.content}-${card.type}-${card.grade}`;
+    if (!seenCards.has(cardKey)) {
+      uniqueCards.push(card);
+      seenCards.add(cardKey);
+    }
+  });
+
+  return uniqueCards;
+};
+
+const shuffleArray = <T,>(array: T[]): T[] => {
+  return [...array].sort(() => Math.random() - 0.5);
+};
+
+  // drawCard 함수 수정 (중복 방지)
+const drawCard = (currentDeck: Card[], type?: 'number' | 'symbol'): [Card, Card[]] => {
+  const availableCards = type ? currentDeck.filter(card => card.type === type) : currentDeck;
+  const index = Math.floor(Math.random() * availableCards.length);
+  const card = availableCards[index];
+  const updatedDeck = currentDeck.filter((_, i) => i !== currentDeck.indexOf(card));
+  return [card, updatedDeck];
+};
+
+  // 플레이어에게 카드를 나누어주는 함수 수정
+const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
+  const updatedPlayers = [...currentPlayers];
+  let updatedDeck = [...currentDeck];
+
+  // 기본 카드 분배
+  updatedPlayers.forEach(player => {
+    player.hand = [...BASE_CARDS];
+  });
+
+  // 카드가 이미 핸드에 있는지 확인하는 함수
+  const isCardInHand = (player: Player, card: Card) => {
+    return player.hand.some(c => c.content === card.content && c.type === card.type && c.grade === card.grade);
   };
 
-  const shuffleArray = <T,>(array: T[]): T[] => {
-    return [...array].sort(() => Math.random() - 0.5);
-  };
+  // 숨겨진 카드 분배
+  for (let i = 0; i < updatedPlayers.length; i++) {
+    let [hiddenCard, newDeck] = drawCard(updatedDeck, 'number');
+    while (isCardInHand(updatedPlayers[i], hiddenCard)) {
+      [hiddenCard, newDeck] = drawCard(newDeck, 'number');
+    }
+    updatedPlayers[i].hand.push({ ...hiddenCard, hidden: i !== 0 });
+    updatedDeck = newDeck;
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
 
-  const drawCard = (currentDeck: Card[], type?: 'number' | 'symbol'): [Card, Card[]] => {
-    const availableCards = type ? currentDeck.filter(card => card.type === type) : currentDeck;
-    const index = Math.floor(Math.random() * availableCards.length);
-    const card = availableCards[index];
-    const updatedDeck = currentDeck.filter((_, i) => i !== currentDeck.indexOf(card));
-    return [card, updatedDeck];
-  };
-
-  const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
-    const updatedPlayers = [...currentPlayers];
-    let updatedDeck = [...currentDeck];
-  
-    // Deal base cards to all players
-    updatedPlayers.forEach(player => {
-      player.hand = [...BASE_CARDS];
-    });
-  
-    // Function to check if a card is already in player's hand
-    const isCardInHand = (player: Player, card: Card) => {
-      return player.hand.some(c => c.content === card.content && c.type === card.type);
-    };
-  
-    // Deal hidden card
+  // 오픈 카드 2장 분배
+  for (let j = 0; j < 2; j++) {
+    setGamePhase(j === 0 ? 'dealOpen1' : 'dealOpen2');
     for (let i = 0; i < updatedPlayers.length; i++) {
-      let [hiddenCard, newDeck] = drawCard(updatedDeck, 'number');
-      while (isCardInHand(updatedPlayers[i], hiddenCard)) {
-        [hiddenCard, newDeck] = drawCard(newDeck, 'number');
+      let [openCard, newDeck] = drawCard(updatedDeck);
+      while (isCardInHand(updatedPlayers[i], openCard)) {
+        [openCard, newDeck] = drawCard(newDeck);
       }
-      updatedPlayers[i].hand.push({ ...hiddenCard, hidden: i !== 0 });
-      updatedDeck = newDeck;
+      updatedDeck = await handleNewCard(openCard, i, updatedPlayers, newDeck);
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-  
-    // Deal two open cards
-    for (let j = 0; j < 2; j++) {
-      setGamePhase(j === 0 ? 'dealOpen1' : 'dealOpen2');
-      for (let i = 0; i < updatedPlayers.length; i++) {
-        let [openCard, newDeck] = drawCard(updatedDeck);
-        while (isCardInHand(updatedPlayers[i], openCard)) {
-          [openCard, newDeck] = drawCard(newDeck);
-        }
-        updatedDeck = await handleNewCard(openCard, i, updatedPlayers, newDeck);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
-  
-    setPlayers(updatedPlayers);
-    setDeck(updatedDeck);
-    setGamePhase('firstBet');
-  };
+  }
 
-  const handleNewCard = async (card: Card, playerIndex: number, currentPlayers: Player[], currentDeck: Card[]): Promise<Card[]> => {
-    const updatedPlayers = [...currentPlayers];
-    let updatedDeck = [...currentDeck];
-  
-    if (card.type === 'symbol' && card.content === '×') {
-      if (playerIndex === 0) {
-        // 플레이어가 곱하기 카드를 받았을 때
-        setPendingMultiplyCard(card);
-        setShowRemoveCardModal(true); // 모달을 열어 더하기, 빼기, 곱하기 중 선택하도록 함
-        await new Promise<void>(resolve => {
-          const checkInterval = setInterval(() => {
-            if (!showRemoveCardModal) {
-              clearInterval(checkInterval);
-              resolve();
-            }
-          }, 100);
-        });
-      } else {
-        // AI 로직
-        const removableCards = updatedPlayers[playerIndex].hand.filter(c => ['+', '-', '×'].includes(c.content));
-        if (removableCards.length > 0) {
-          const randomIndex = Math.floor(Math.random() * removableCards.length);
-          const removedCard = removableCards[randomIndex];
-          updatedPlayers[playerIndex].hand = updatedPlayers[playerIndex].hand.filter(c => c !== removedCard);
-          updatedPlayers[playerIndex].hand.push(card);
-          let [numberCard, newDeck] = drawCard(updatedDeck, 'number');
-          updatedPlayers[playerIndex].hand.push(numberCard);
-          updatedDeck = newDeck;
-        }
-      }
-    } else if (card.type === 'symbol' && card.content === '√') {
-      updatedPlayers[playerIndex].hand.push(card);
-      let [numberCard, newDeck] = drawCard(updatedDeck, 'number');
-      updatedPlayers[playerIndex].hand.push(numberCard);
-      updatedDeck = newDeck;
+  setPlayers(updatedPlayers);
+  setDeck(updatedDeck);
+  setGamePhase('firstBet');
+};
+
+const handleNewCard = async (card: Card, playerIndex: number, currentPlayers: Player[], currentDeck: Card[]): Promise<Card[]> => {
+  const updatedPlayers = [...currentPlayers];
+  let updatedDeck = [...currentDeck];
+
+  if (card.type === 'symbol' && card.content === '×') {
+    if (playerIndex === 0) {
+      const removableCards = updatedPlayers[playerIndex].hand.filter(c => ['+', '-', '×'].includes(c.content));
+      setCardsToChooseFrom([...removableCards, card]);
+      setPendingMultiplyCard(card);
+      setShowRemoveCardModal(true);
+      await new Promise<void>(resolve => {
+        const checkInterval = setInterval(() => {
+          if (!showRemoveCardModal) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+      });
     } else {
-      updatedPlayers[playerIndex].hand.push(card);
+      // AI 로직
+      const removableCards = updatedPlayers[playerIndex].hand.filter(c => ['×', '+', '-'].includes(c.content));
+      if (removableCards.length > 0) {
+        const randomIndex = Math.floor(Math.random() * removableCards.length);
+        const removedCard = removableCards[randomIndex];
+        updatedPlayers[playerIndex].hand = updatedPlayers[playerIndex].hand.filter(c => c !== removedCard);
+        updatedPlayers[playerIndex].hand.push(card);
+        let [numberCard, newDeck] = drawCard(updatedDeck, 'number');
+        updatedPlayers[playerIndex].hand.push(numberCard);
+        updatedDeck = newDeck;
+      } else {
+        updatedPlayers[playerIndex].hand.push(card);
+      }
     }
-  
-    setPlayers(updatedPlayers);
-    return updatedDeck;
-  };
+  } else if (card.type === 'symbol' && card.content === '√') {
+    updatedPlayers[playerIndex].hand.push(card);
+    let [numberCard, newDeck] = drawCard(updatedDeck, 'number');
+    updatedPlayers[playerIndex].hand.push(numberCard);
+    updatedDeck = newDeck;
+  } else {
+    updatedPlayers[playerIndex].hand.push(card);
+  }
 
+  // 중복 카드 제거
+  updatedPlayers[playerIndex].hand = removeDuplicateCards(updatedPlayers[playerIndex].hand);
+
+  setPlayers(updatedPlayers);
+  return updatedDeck;
+};
+
+  // handleRemoveCard 함수 수정
   const handleRemoveCard = (cardToRemove: Card) => {
     setPlayers(prevPlayers => {
       const updatedPlayers = [...prevPlayers];
-      updatedPlayers[0].hand = updatedPlayers[0].hand.filter(card => card !== cardToRemove);
-  
-      if (pendingMultiplyCard) {
-        updatedPlayers[0].hand.push(pendingMultiplyCard);
+      if (cardToRemove.content === '×') {
+        // 곱하기 카드를 선택한 경우, 기존 카드를 유지
+        updatedPlayers[0].hand = updatedPlayers[0].hand.filter(card => !cardsToChooseFrom.includes(card) || card.content === '×');
+      } else {
+        // 다른 카드를 선택한 경우, 곱하기 카드를 추가하고 선택된 카드 제거
+        updatedPlayers[0].hand = updatedPlayers[0].hand.filter(card => card !== cardToRemove);
+        updatedPlayers[0].hand.push(pendingMultiplyCard!);
       }
-  
       return updatedPlayers;
     });
     setShowRemoveCardModal(false);
@@ -253,10 +293,13 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
     setPlayers(prevPlayers => {
       const updatedPlayers = [...prevPlayers];
       updatedPlayers[0].hand.push(newCard);
+      // 중복 카드 제거
+      updatedPlayers[0].hand = removeDuplicateCards(updatedPlayers[0].hand);
       return updatedPlayers;
     });
     setDeck(newDeck);
     setPendingMultiplyCard(null);
+    setCardsToChooseFrom([]);
   };
 
   const handlePlayerAction = (action: 'fold' | 'call' | 'raise', amount?: number) => {
@@ -343,17 +386,18 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
         const currentPlayer = updatedPlayers[0]; // 현재 사용자 플레이어
         
         // 카드가 이미 선택된 경우 삭제, 그렇지 않으면 추가
-        if (currentPlayer.equation.includes(card)) {
-          currentPlayer.equation = currentPlayer.equation.filter(c => c !== card);
+        if (currentPlayer.equation.some(c => c.content === card.content && c.type === card.type)) {
+          currentPlayer.equation = currentPlayer.equation.filter(c => !(c.content === card.content && c.type === card.type));
         } else {
           currentPlayer.equation.push(card);
         }
+  
+        console.log('Updated equation:', currentPlayer.equation); // 디버깅용 로그
   
         return updatedPlayers;
       });
     }
   };
-  
 
   const calculateResult = (equation: Card[]): number | null => {
     try {
@@ -480,49 +524,91 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
   const renderGamePhase = () => {
     switch (gamePhase) {
       case 'createEquation':
-
   return (
     <>
-      <div className="text-xl font-bold mb-2">Time left: {timeLeft} seconds</div>
+      <div className="text-xl font-bold mb-2">남은 시간: {timeLeft}초</div>
       {currentPlayerIndex === 0 && (
-        <div className="text-green-500 text-xl font-bold">Your Turn</div>
+        <div className="text-green-500 text-xl font-bold">당신의 차례입니다</div>
       )}
       <div className="flex justify-center mt-4">
-        <Button onClick={handleCreateEquation} className="mr-2">Submit Equation</Button>
+        <Button onClick={handleCreateEquation} className="mr-2">수식 제출</Button>
         <Button onClick={() => setPlayers(prevPlayers => {
           const updatedPlayers = [...prevPlayers];
           updatedPlayers[0].equation = []; // 사용자 수식 초기화
           return updatedPlayers;
-        })} variant="outline">Clear Equation</Button>
+        })} variant="outline">수식 초기화</Button>
       </div>
-            <div className="mt-4 p-4 bg-white rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">Your Hand:</h3>
-              <div className="flex justify-center">
-                {players[0].hand.map((card, index) => (
-                  <CardComponent 
-                    key={index} 
-                    {...card} 
-                    onClick={() => handleCardClick(card)} 
-                    selected={players[0].equation.includes(card)} 
-                    hidden={card.hidden}
-                  />
-                ))}
-              </div>
-              <h3 className="text-lg font-semibold mt-4 mb-2">Your Equation:</h3>
-              <div className="flex justify-center">
-                {players[0].equation.map((card, index) => (
-                  <CardComponent 
-                    key={index} 
-                    {...card} 
-                    onClick={() => handleCardClick(card)} 
-                    selected={true} 
-                    hidden={false}
-                  />
-                ))}
-              </div>
+      <div className="mt-4 p-4 bg-white rounded-lg">
+        <h3 className="text-lg font-semibold mb-2">당신의 카드:</h3>
+        <div className="flex justify-center">
+          {players[0].hand.map((card, index) => (
+            <CardComponent 
+              key={index} 
+              {...card} 
+              onClick={() => handleCardClick(card)} 
+              selected={players[0].equation.some(c => c.content === card.content && c.type === card.type)} 
+              hidden={card.hidden}
+            />
+          ))}
+        </div>
+        <h3 className="text-lg font-semibold mt-4 mb-2">당신의 수식:</h3>
+        <div className="flex justify-center">
+          {players[0].equation.map((card, index) => (
+            <CardComponent 
+              key={index} 
+              {...card} 
+              onClick={() => handleCardClick(card)} 
+              selected={true} 
+              hidden={false}
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+
+        return (
+          <>
+            <div className="text-xl font-bold mb-2">Time left: {timeLeft} seconds</div>
+            {currentPlayerIndex === 0 && (
+              <div className="text-green-500 text-xl font-bold">Your Turn</div>
+            )}
+            <div className="flex justify-center mt-4">
+              <Button onClick={handleCreateEquation} className="mr-2">Submit Equation</Button>
+              <Button onClick={() => setPlayers(prevPlayers => {
+                const updatedPlayers = [...prevPlayers];
+                updatedPlayers[0].equation = []; // 사용자 수식 초기화
+                return updatedPlayers;
+              })} variant="outline">Clear Equation</Button>
             </div>
-          </>
-        );
+                  <div className="mt-4 p-4 bg-white rounded-lg">
+                    <h3 className="text-lg font-semibold mb-2">Your Hand:</h3>
+                    <div className="flex justify-center">
+                      {players[0].hand.map((card, index) => (
+                        <CardComponent 
+                          key={index} 
+                          {...card} 
+                          onClick={() => handleCardClick(card)} 
+                          selected={players[0].equation.includes(card)} 
+                          hidden={card.hidden}
+                        />
+                      ))}
+                    </div>
+                    <h3 className="text-lg font-semibold mt-4 mb-2">Your Equation:</h3>
+                    <div className="flex justify-center">
+                      {players[0].equation.map((card, index) => (
+                        <CardComponent 
+                          key={index} 
+                          {...card} 
+                          onClick={() => handleCardClick(card)} 
+                          selected={true} 
+                          hidden={false}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              );
       // 다른 게임 페이즈에 대한 로직도 이곳에 추가 가능
     }
   };
@@ -616,7 +702,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
           <div className="bg-white p-4 rounded">
             <h2 className="text-lg font-bold mb-2">곱하기 카드를 받았습니다. 제거할 카드를 선택하세요:</h2>
             <div className="flex justify-center">
-              {players[0].hand.filter(card => ['+', '-', '×'].includes(card.content)).map((card, index) => (
+              {cardsToChooseFrom.map((card, index) => (
                 <CardComponent
                   key={index}
                   {...card}
@@ -629,7 +715,6 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
         </div>
       )}
 
-      
       <div className="fixed bottom-4 right-4 flex space-x-2">
         <Button onClick={() => handlePlayerAction('fold')}>Fold</Button>
         <Button onClick={() => handlePlayerAction('call')}>Call</Button>

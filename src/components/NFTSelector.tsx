@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 interface NFT {
   id: string;
@@ -13,19 +14,39 @@ interface NFTSelectorProps {
   setSelectedNFT: (nft: NFT) => void;
 }
 
-const dummyNFTs: NFT[] = [
-  { id: '1', name: 'Cool Cat #1', image: 'https://via.placeholder.com/150', tier: 1, maxChips: 100 },
-  { id: '2', name: 'Bored Ape #42', image: 'https://via.placeholder.com/150', tier: 2, maxChips: 80 },
-  { id: '3', name: 'Crypto Punk #007', image: 'https://via.placeholder.com/150', tier: 3, maxChips: 60 },
-];
-
 const NFTSelector: React.FC<NFTSelectorProps> = ({ setSelectedNFT }) => {
   const [userNFTs, setUserNFTs] = useState<NFT[]>([]);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 더미 데이터 사용
-    setUserNFTs(dummyNFTs);
+    const storedWalletAddress = localStorage.getItem('walletAddress');
+    setWalletAddress(storedWalletAddress);
+
+    if (storedWalletAddress) {
+      const fetchUserNFTs = async () => {
+        try {
+          console.log(`Using wallet address: ${storedWalletAddress}`);
+          const response = await axios.get(`http://34.64.116.169:8000/api/get_nfts/${storedWalletAddress}`);
+          console.log('API response:', response.data);
+
+          const fetchedNFTs: NFT[] = response.data.map((nft: any) => ({
+            id: nft.id,
+            name: nft.name,
+            image: nft.image,
+            tier: nft.tier,
+            maxChips: nft.max_chips,
+          }));
+          setUserNFTs(fetchedNFTs);
+        } catch (error) {
+          console.error('Failed to fetch NFTs:', error);
+        }
+      };
+
+      fetchUserNFTs();
+    } else {
+      console.error('No wallet address found in local storage.');
+    }
   }, []);
 
   const handleNFTSelect = (nft: NFT) => {
