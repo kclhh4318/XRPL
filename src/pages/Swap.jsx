@@ -3,6 +3,8 @@ import { isInstalled, getAddress, submitTransaction } from "@gemwallet/api";
 import { useWallet } from "../contexts/WalletContext";
 import { swapTokens } from "../utils/swap";
 
+const TO_TOKEN = "UDH";
+
 function Swap() {
   const {
     walletAddress,
@@ -24,8 +26,8 @@ function Swap() {
       setIsLoading(true);
       setError(null);
 
-      const fromCurrency = isXRPtoHYB ? "XRP" : "USD";
-      const toCurrency = isXRPtoHYB ? "USD" : "XRP";
+      const fromCurrency = isXRPtoHYB ? "XRP" : TO_TOKEN;
+      const toCurrency = isXRPtoHYB ? TO_TOKEN : "XRP";
 
       await swapTokens(amount, fromCurrency, amount, toCurrency, walletAddress);
 
@@ -53,10 +55,10 @@ function Swap() {
       <div className="bg-purple-100 rounded-lg p-4 mb-2">
         <div className="flex items-center mb-2">
           <span className="bg-blue-400 text-white rounded-full p-1 mr-2">
-            {isXRPtoHYB ? "XRP" : "USD"}
+            {isXRPtoHYB ? "XRP" : TO_TOKEN}
           </span>
           <span className="text-purple-800 font-bold">
-            {isXRPtoHYB ? "XRP" : "USD"}
+            {isXRPtoHYB ? "XRP" : TO_TOKEN}
           </span>
         </div>
         <input
@@ -80,10 +82,10 @@ function Swap() {
       <div className="bg-purple-100 rounded-lg p-4 mb-4">
         <div className="flex items-center mb-2">
           <span className="bg-green-400 text-white rounded-full p-1 mr-2">
-            {isXRPtoHYB ? "USD" : "XRP"}
+            {isXRPtoHYB ? TO_TOKEN : "XRP"}
           </span>
           <span className="text-purple-800 font-bold">
-            {isXRPtoHYB ? "USD" : "XRP"}
+            {isXRPtoHYB ? TO_TOKEN : "XRP"}
           </span>
           <span className="ml-auto">📋</span>
         </div>
