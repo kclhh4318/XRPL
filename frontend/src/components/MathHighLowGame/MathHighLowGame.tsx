@@ -94,7 +94,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
   const initializeGame = () => {
     const newDeck = createDeck();
     const initialPlayers: Player[] = [
-      { id: 0, name: '당신', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: false, nft: selectedNFT },
+      { id: 0, name: 'You', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: false, nft: selectedNFT },
       { id: 1, name: 'AI 1', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: true },
       { id: 2, name: 'AI 2', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: true },
       { id: 3, name: 'AI 3', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: true },
@@ -538,19 +538,19 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
       const lowDiff = Math.abs(lowWinner.result! - 1);
       const userWon = highDiff < lowDiff || (highDiff === lowDiff && highWinner === players[0]);
       handleGameEnd(userWon);
-      return userWon ? "당신이 이겼습니다! (High)" : "당신이 졌습니다.";
+      return userWon ? "You Win! (High)" : "You Lose.";
     } else if (highWinner) {
       const userWon = highWinner === players[0];
       handleGameEnd(userWon);
-      return userWon ? "당신이 이겼습니다! (High)" : "당신이 졌습니다.";
+      return userWon ? "You Win! (High)" : "You Lose.";
     } else if (lowWinner) {
       const userWon = lowWinner === players[0];
       handleGameEnd(userWon);
-      return userWon ? "당신이 이겼습니다! (Low)" : "당신이 졌습니다.";
+      return userWon ? "You Win! (Low)" : "You Lose.";
     }
 
     handleGameEnd(false);
-    return "승자를 결정할 수 없습니다.";
+    return "The winner cannot be determined.";
   };
 
   const renderGamePhase = () => {
@@ -558,20 +558,20 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
       case 'createEquation':
       return (
         <>
-          <div className="text-xl font-bold mb-2">남은 시간: {timeLeft}초</div>
+          <div className="text-xl font-bold mb-2">Time Left: {timeLeft}초</div>
           {currentPlayerIndex === 0 && (
-            <div className="text-green-500 text-xl font-bold">당신의 차례입니다</div>
+            <div className="text-green-500 text-xl font-bold">Your Turn</div>
           )}
           <div className="flex justify-center mt-4">
-            <Button onClick={handleCreateEquation} className="mr-2">수식 제출</Button>
+            <Button onClick={handleCreateEquation} className="mr-2">submit Equation</Button>
             <Button onClick={() => setPlayers(prevPlayers => {
               const updatedPlayers = [...prevPlayers];
               updatedPlayers[0].equation = []; // 사용자 수식 초기화
               return updatedPlayers;
-            })} variant="outline">수식 초기화</Button>
+            })} variant="outline">Clear Equation</Button>
           </div>
           <div className="mt-4 p-4 bg-white rounded-lg">
-            <h3 className="text-lg font-semibold mb-2">당신의 카드:</h3>
+            <h3 className="text-lg font-semibold mb-2">Your hand:</h3>
             <div className="flex justify-center">
               {players[0].hand.map((card, index) => (
                 <CardComponent 
@@ -584,7 +584,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
                 />
               ))}
             </div>
-            <h3 className="text-lg font-semibold mt-4 mb-2">당신의 수식:</h3>
+            <h3 className="text-lg font-semibold mt-4 mb-2">Your Equation:</h3>
             <div className="flex justify-center">
               {players[0].equation.map((card, index) => (
                 <CardComponent 
@@ -730,7 +730,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
       {showRemoveCardModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg">
-            <h2 className="text-xl font-bold mb-4">곱하기 카드를 받았습니다. 제거할 카드를 선택하세요:</h2>
+            <h2 className="text-xl font-bold mb-4">You have received a multiplication card. Select the card you want to remove:</h2>
             <div className="flex justify-center">
               {cardsToChooseFrom.map((card, index) => (
                 <CardComponent
