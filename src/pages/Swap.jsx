@@ -10,15 +10,13 @@ function Swap() {
   } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [isXRPtoHYB, setIsXRPtoHYB] = useState(true); // true for XRP to HYB, false for HYB to XRP
-  const [fromAmount, setFromAmount] = useState("0.0");
-  const [toAmount, setToAmount] = useState("0.0");
+  const [amount, setAmount] = useState("0.0");
   const [slippage, setSlippage] = useState("0.5");
   const [error, setError] = useState(null);
 
   const handleExchange = () => {
     setIsXRPtoHYB(!isXRPtoHYB);
-    setFromAmount(toAmount);
-    setToAmount(fromAmount);
+    setAmount(amount);
   };
 
   const handleSwap = async () => {
@@ -26,13 +24,12 @@ function Swap() {
       setIsLoading(true);
       setError(null);
 
-      const fromCurrency = isXRPtoHYB ? "XRP" : "HYB";
-      const toCurrency = isXRPtoHYB ? "HYB" : "XRP";
+      const fromCurrency = isXRPtoHYB ? "XRP" : "USD";
+      const toCurrency = isXRPtoHYB ? "USD" : "XRP";
 
-      await swapTokens(fromAmount, fromCurrency, toCurrency, walletAddress);
+      await swapTokens(amount, fromCurrency, amount, toCurrency, walletAddress);
 
-      setFromAmount("0.0");
-      setToAmount("0.0");
+      setAmount("0.0");
     } catch (error) {
       setError("Swap failed. Please try again." + error);
     } finally {
@@ -56,16 +53,16 @@ function Swap() {
       <div className="bg-purple-100 rounded-lg p-4 mb-2">
         <div className="flex items-center mb-2">
           <span className="bg-blue-400 text-white rounded-full p-1 mr-2">
-            {isXRPtoHYB ? "XRP" : "HYB"}
+            {isXRPtoHYB ? "XRP" : "USD"}
           </span>
           <span className="text-purple-800 font-bold">
-            {isXRPtoHYB ? "XRP" : "HYB"}
+            {isXRPtoHYB ? "XRP" : "USD"}
           </span>
         </div>
         <input
           type="number"
-          value={fromAmount}
-          onChange={(e) => setFromAmount(e.target.value)}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
           className="w-full bg-transparent text-right text-2xl"
           placeholder="0.0"
         />
@@ -83,17 +80,17 @@ function Swap() {
       <div className="bg-purple-100 rounded-lg p-4 mb-4">
         <div className="flex items-center mb-2">
           <span className="bg-green-400 text-white rounded-full p-1 mr-2">
-            {isXRPtoHYB ? "HYB" : "XRP"}
+            {isXRPtoHYB ? "USD" : "XRP"}
           </span>
           <span className="text-purple-800 font-bold">
-            {isXRPtoHYB ? "HYB" : "XRP"}
+            {isXRPtoHYB ? "USD" : "XRP"}
           </span>
           <span className="ml-auto">📋</span>
         </div>
         <input
           type="number"
-          value={toAmount}
-          onChange={(e) => setToAmount(e.target.value)}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
           className="w-full bg-transparent text-right text-2xl"
           placeholder="0.0"
         />
