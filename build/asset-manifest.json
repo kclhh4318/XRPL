@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/static/css/main.38072af1.css",
+    "main.js": "/static/js/main.8a72f37e.js",
+    "static/media/mathhighlow.png": "/static/media/mathhighlow.a7ad5483106f140afb33.png",
+    "static/media/xrplogo.png": "/static/media/xrplogo.a30ac2af14f2c3a5461a.png",
+    "index.html": "/index.html",
+    "main.38072af1.css.map": "/static/css/main.38072af1.css.map",
+    "main.8a72f37e.js.map": "/static/js/main.8a72f37e.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.38072af1.css",
+    "static/js/main.8a72f37e.js"
+  ]
+}
