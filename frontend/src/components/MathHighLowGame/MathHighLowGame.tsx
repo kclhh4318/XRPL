@@ -95,9 +95,9 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
     const newDeck = createDeck();
     const initialPlayers: Player[] = [
       { id: 0, name: 'You', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: false, nft: selectedNFT },
-      { id: 1, name: 'AI 1', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: true },
-      { id: 2, name: 'AI 2', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: true },
-      { id: 3, name: 'AI 3', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: true },
+      { id: 1, name: 'Player 1', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: true },
+      { id: 2, name: 'Player 2', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: true },
+      { id: 3, name: 'Player 3', chips: 1000, hand: [], equation: [], bet: 0, result: null, betChoice: null, isAI: true },
     ];
 
     setDeck(newDeck);
