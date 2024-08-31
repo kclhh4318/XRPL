@@ -43,7 +43,7 @@ Follow these steps to set up and run the NBLE - XRP NFT Game Platform locally.
 - Node.js (v14 or later)
 - Python (v3.7 or later)
 - pip (Python package installer)
-- npm (Node package manager)
+- yarn (Node.js package manager)
 - ![GemWallet](https://chromewebstore.google.com/detail/gemwallet/egebedonbdapoieedfcfkofloclfghab)
 
 ### Wallet Setup
@@ -77,7 +77,7 @@ Follow these steps to set up and run the NBLE - XRP NFT Game Platform locally.
 4. Install Node.js dependencies:
    ```
    cd frontend
-   npm install
+   yarn install
    ```
 
 ### Running the Application
@@ -95,7 +95,7 @@ Follow these steps to set up and run the NBLE - XRP NFT Game Platform locally.
 
    ```
    cd frontend
-   npm run start
+   yarn start
    ```
 
    The frontend application will be available at `http://localhost:3000`
