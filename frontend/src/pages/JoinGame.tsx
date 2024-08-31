@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
 
 interface GameRoom {
   id: string;
@@ -33,25 +32,38 @@ const JoinGame: React.FC = () => {
   const [selectedRoom, setSelectedRoom] = useState<GameRoom | null>(null);
   const [insertAmount, setInsertAmount] = useState(0);
   const [userNFT, setUserNFT] = useState<NFT | null>(null);
-  const [maxChips, setMaxChips] = useState<number>(0);
+  const [maxChips, setMaxChips] = useState<number>(1000); // Default max chips
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     setGameRooms(dummyGameRooms);
 
-    // Fetching the selected NFT from the location state
+    // Dummy NFT data (replace API call)
+    const dummyNFT: NFT = {
+      id: '1',
+      image: 'https://via.placeholder.com/100',
+      tier: 2,
+      maxChips: 1000
+    };
+    setUserNFT(dummyNFT);
+    setMaxChips(dummyNFT.maxChips);
+
+    // Comment out the actual API call
+    /*
     const stateNFT = location.state?.selectedNFT as NFT;
     if (stateNFT) {
       setUserNFT(stateNFT);
       console.log(`Selected NFT ID: ${stateNFT.id}`);
       fetchNFTRank(stateNFT.id);
     } else {
-      // Handle case where no NFT is selected
       setAlertMessage("No NFT selected. Please select an NFT to join the game.");
     }
+    */
   }, [location.state]);
 
+  // Comment out the fetchNFTRank function
+  /*
   const fetchNFTRank = async (nftId: string) => {
     try {
       console.log(`Fetching rank for NFT ID: ${nftId}`);
@@ -61,7 +73,6 @@ const JoinGame: React.FC = () => {
       const rank = response.data.rank;
       console.log(`Received rank: ${rank}`);
 
-      // Assuming rank is directly proportional to maxChips
       const calculatedMaxChips = calculateMaxChips(rank);
       console.log(`Calculated max chips: ${calculatedMaxChips}`);
 
@@ -71,11 +82,7 @@ const JoinGame: React.FC = () => {
       setAlertMessage("Failed to fetch NFT rank.");
     }
   };
-
-  const calculateMaxChips = (rank: number) => {
-    // Example logic: higher rank means more chips
-    return 100 + rank * 10;
-  };
+  */
 
   const handleJoinGame = (room: GameRoom) => {
     if (room.status === 'PLAYING') {

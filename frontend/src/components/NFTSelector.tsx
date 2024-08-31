@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+// import axios from 'axios';  // API 호출을 사용하지 않으므로 주석 처리
 
 interface NFT {
   id: string;
@@ -16,10 +16,22 @@ interface NFTSelectorProps {
 
 const NFTSelector: React.FC<NFTSelectorProps> = ({ setSelectedNFT }) => {
   const [userNFTs, setUserNFTs] = useState<NFT[]>([]);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  // const [walletAddress, setWalletAddress] = useState<string | null>(null);  // 더미 데이터를 사용하므로 주석 처리
   const navigate = useNavigate();
 
   useEffect(() => {
+    // 더미 NFT 데이터
+    const dummyNFTs: NFT[] = [
+      { id: '1', name: 'Cool Cat #1', image: 'https://placekitten.com/200/200', tier: 1, maxChips: 100 },
+      { id: '2', name: 'Bored Ape #42', image: 'https://placekitten.com/201/201', tier: 2, maxChips: 200 },
+      { id: '3', name: 'Crypto Punk #007', image: 'https://placekitten.com/202/202', tier: 3, maxChips: 300 },
+      { id: '4', name: 'Doodle #123', image: 'https://placekitten.com/203/203', tier: 2, maxChips: 150 },
+    ];
+
+    setUserNFTs(dummyNFTs);
+
+    // 실제 API 호출 부분 주석 처리
+    /*
     const storedWalletAddress = localStorage.getItem('walletAddress');
     setWalletAddress(storedWalletAddress);
 
@@ -48,6 +60,7 @@ const NFTSelector: React.FC<NFTSelectorProps> = ({ setSelectedNFT }) => {
     } else {
       console.error('No wallet address found in local storage.');
     }
+    */
   }, []);
 
   const handleNFTSelect = (nft: NFT) => {
