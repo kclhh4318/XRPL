@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 
 interface GameRoom {
   id: string;
@@ -10,6 +11,7 @@ interface GameRoom {
 }
 
 interface NFT {
+  id: string;
   image: string;
   tier: number;
   maxChips: number;
@@ -29,13 +31,51 @@ const JoinGame: React.FC = () => {
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<GameRoom | null>(null);
-  const [userNFT, setUserNFT] = useState<NFT>({ image: 'https://via.placeholder.com/100', tier: 1, maxChips: 80 });
   const [insertAmount, setInsertAmount] = useState(0);
+  const [userNFT, setUserNFT] = useState<NFT | null>(null);
+  const [maxChips, setMaxChips] = useState<number>(0);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     setGameRooms(dummyGameRooms);
-  }, []);
+
+    // Fetching the selected NFT from the location state
+    const stateNFT = location.state?.selectedNFT as NFT;
+    if (stateNFT) {
+      setUserNFT(stateNFT);
+      console.log(`Selected NFT ID: ${stateNFT.id}`);
+      fetchNFTRank(stateNFT.id);
+    } else {
+      // Handle case where no NFT is selected
+      setAlertMessage("No NFT selected. Please select an NFT to join the game.");
+    }
+  }, [location.state]);
+
+  const fetchNFTRank = async (nftId: string) => {
+    try {
+      console.log(`Fetching rank for NFT ID: ${nftId}`);
+      const response = await axios.get(`http://34.64.116.169:8000/api/get_nft_rank/${nftId}`);
+      console.log('API Response:', response.data);
+      
+      const rank = response.data.rank;
+      console.log(`Received rank: ${rank}`);
+
+      // Assuming rank is directly proportional to maxChips
+      const calculatedMaxChips = calculateMaxChips(rank);
+      console.log(`Calculated max chips: ${calculatedMaxChips}`);
+
+      setMaxChips(calculatedMaxChips);
+    } catch (error) {
+      console.error('Failed to fetch NFT rank:', error);
+      setAlertMessage("Failed to fetch NFT rank.");
+    }
+  };
+
+  const calculateMaxChips = (rank: number) => {
+    // Example logic: higher rank means more chips
+    return 100 + rank * 10;
+  };
 
   const handleJoinGame = (room: GameRoom) => {
     if (room.status === 'PLAYING') {
@@ -51,7 +91,7 @@ const JoinGame: React.FC = () => {
   };
 
   const handleConfirmJoin = () => {
-    if (selectedRoom && insertAmount <= userNFT.maxChips) {
+    if (selectedRoom && insertAmount <= maxChips) {
       console.log(`Joining game room ${selectedRoom.id} with ${insertAmount} chips`);
       navigate('/game', { state: { roomId: selectedRoom.id, chips: insertAmount } });
     } else {
@@ -110,7 +150,7 @@ const JoinGame: React.FC = () => {
         ))}
       </div>
 
-      {showModal && (
+      {showModal && userNFT && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg">
             <h2 className="text-2xl font-bold mb-4">Confirm Join Game</h2>
@@ -118,17 +158,18 @@ const JoinGame: React.FC = () => {
               <img src={userNFT.image} alt="Your NFT" className="w-24 h-24 mr-4" />
               <div>
                 <p>Tier: {userNFT.tier}</p>
-                <p>Max Chips: {userNFT.maxChips}</p>
+                <p>Max Chips: {maxChips}</p>
               </div>
             </div>
             <div className="mb-4">
-              <p>Balance: {userNFT.maxChips}</p>
+              <p>Balance: {maxChips}</p>
               <label className="block mt-2">
                 Insert Amount:
                 <input
                   type="number"
                   value={insertAmount}
                   onChange={(e) => setInsertAmount(Number(e.target.value))}
+                  max={maxChips}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                 />
               </label>

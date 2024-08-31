@@ -37,6 +37,7 @@ const NFTSelector: React.FC<NFTSelectorProps> = ({ setSelectedNFT }) => {
             tier: nft.tier,
             maxChips: nft.max_chips,
           }));
+          console.log('Fetched NFTs:', fetchedNFTs);
           setUserNFTs(fetchedNFTs);
         } catch (error) {
           console.error('Failed to fetch NFTs:', error);
@@ -50,6 +51,7 @@ const NFTSelector: React.FC<NFTSelectorProps> = ({ setSelectedNFT }) => {
   }, []);
 
   const handleNFTSelect = (nft: NFT) => {
+    console.log('Selected NFT:', nft);
     setSelectedNFT(nft);
     navigate('/join-game');
   };
