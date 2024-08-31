@@ -1,6 +1,6 @@
 import { submitTransaction, createOffer } from "@gemwallet/api";
 
-const issuer = "rUHJCnCQes5SdVbGXPgCTKwj9WZSKn6YbW";
+const issuer = "rPDSTeTLuWNDCLPVJ7TJ5JTAg4PRJX8GTS";
 
 export const swapTokens = async (
   fromAmount,

@@ -3,7 +3,7 @@ import { isInstalled, getAddress, submitTransaction } from "@gemwallet/api";
 import { useWallet } from "../contexts/WalletContext";
 import { swapTokens } from "../utils/swap";
 
-const TO_TOKEN = "UDH";
+const TO_TOKEN = "NBL";
 
 function Swap() {
   const {
@@ -40,7 +40,7 @@ function Swap() {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
+    <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 mt-6">
       <h1 className="text-2xl font-bold text-purple-800 mb-2">Swap</h1>
       <p className="text-purple-600 mb-4">Trade tokens in an instant</p>
 
@@ -54,9 +54,14 @@ function Swap() {
 
       <div className="bg-purple-100 rounded-lg p-4 mb-2">
         <div className="flex items-center mb-2">
-          <span className="bg-blue-400 text-white rounded-full p-1 mr-2">
-            {isXRPtoHYB ? "XRP" : TO_TOKEN}
-          </span>
+          <img
+          className="rounded-full mr-1"
+            src={isXRPtoHYB ? "xrp.png" : "nbl.png"}
+            width={25}
+            height={25}
+            alt="swap1"
+          />
+
           <span className="text-purple-800 font-bold">
             {isXRPtoHYB ? "XRP" : TO_TOKEN}
           </span>
@@ -81,9 +86,13 @@ function Swap() {
 
       <div className="bg-purple-100 rounded-lg p-4 mb-4">
         <div className="flex items-center mb-2">
-          <span className="bg-green-400 text-white rounded-full p-1 mr-2">
-            {isXRPtoHYB ? TO_TOKEN : "XRP"}
-          </span>
+          <img
+          className="rounded-full mr-1"
+            src={!isXRPtoHYB ? "xrp.png" : "nbl.png"}
+            width={25}
+            height={25}
+            alt="swap2"
+          />
           <span className="text-purple-800 font-bold">
             {isXRPtoHYB ? TO_TOKEN : "XRP"}
           </span>
@@ -96,20 +105,6 @@ function Swap() {
           className="w-full bg-transparent text-right text-2xl"
           placeholder="0.0"
         />
-      </div>
-
-      <div className="flex justify-between items-center mb-4">
-        <span className="text-purple-600">Slippage Tolerance</span>
-        <div className="flex items-center">
-          <input
-            type="number"
-            value={slippage}
-            onChange={(e) => setSlippage(e.target.value)}
-            className="w-16 bg-transparent text-right"
-          />
-          <span className="ml-1">%</span>
-          <span className="ml-2 text-teal-500">✏️</span>
-        </div>
       </div>
 
       {/* {!walletAddress && (
