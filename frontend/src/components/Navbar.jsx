@@ -15,7 +15,7 @@ const Navbar = () => {
     <nav className="bg-white shadow-md">
       <div className="container mx-auto px-4 flex justify-between items-center h-16">
         <Link to="/" className="text-xl font-bold">
-          <span className="text-gray-800">&#9635;</span>NFT
+          <span className="text-gray-800">&#9635;</span>NBLE
         </Link>
         {walletAddress && (
           <div className="flex items-center justify-center">
