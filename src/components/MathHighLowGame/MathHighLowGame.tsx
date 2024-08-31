@@ -224,67 +224,85 @@ const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
 };
 
 // handleNewCard 함수 수정
-const handleNewCard = async (card: Card, playerIndex: number, currentPlayers: Player[], currentDeck: Card[]): Promise<Card[]> => {
-  const updatedPlayers = [...currentPlayers];
-  let updatedDeck = [...currentDeck];
+  const handleNewCard = async (card: Card, playerIndex: number, currentPlayers: Player[], currentDeck: Card[]): Promise<Card[]> => {
+    const updatedPlayers = [...currentPlayers];
+    let updatedDeck = [...currentDeck];
 
-  if (card.type === 'symbol' && card.content === '×') {
-    if (playerIndex === 0) {
-      const removableCards = updatedPlayers[playerIndex].hand.filter(c => ['+', '-', '×'].includes(c.content));
-      setCardsToChooseFrom([...removableCards, card]);  // 곱하기 카드도 포함
-      setPendingMultiplyCard(card);
-      setShowRemoveCardModal(true);
-      await new Promise<void>(resolve => {
-        const checkInterval = setInterval(() => {
-          if (!showRemoveCardModal) {
-            clearInterval(checkInterval);
-            resolve();
-          }
-        }, 100);
-      });
+    if (card.type === 'symbol' && card.content === '×') {
+      if (playerIndex === 0) {
+        const removableCards = updatedPlayers[playerIndex].hand.filter(c => ['+', '-', '×'].includes(c.content));
+        setCardsToChooseFrom([...removableCards, card]);  // 곱하기 카드도 포함
+        setPendingMultiplyCard(card);
+        setShowRemoveCardModal(true);
+        await new Promise<void>(resolve => {
+          const checkInterval = setInterval(() => {
+            if (!showRemoveCardModal) {
+              clearInterval(checkInterval);
+              resolve();
+            }
+          }, 100);
+        });
+      } else {
+        // AI 로직
+        const removableCards = updatedPlayers[playerIndex].hand.filter(c => ['×', '+', '-'].includes(c.content));
+        if (removableCards.length > 0) {
+          const randomIndex = Math.floor(Math.random() * removableCards.length);
+          const removedCard = removableCards[randomIndex];
+          updatedPlayers[playerIndex].hand = updatedPlayers[playerIndex].hand.filter(c => c !== removedCard);
+          updatedPlayers[playerIndex].hand.push(card);
+          let [numberCard, newDeck] = drawCard(updatedDeck, 'number');
+          updatedPlayers[playerIndex].hand.push(numberCard);
+          updatedDeck = newDeck;
+        } else {
+          updatedPlayers[playerIndex].hand.push(card);
+        }
+      }
+    } else if (card.type === 'symbol' && card.content === '√') {
+      updatedPlayers[playerIndex].hand.push(card);
+      let [numberCard, newDeck] = drawCard(updatedDeck, 'number');
+      updatedPlayers[playerIndex].hand.push(numberCard);
+      updatedDeck = newDeck;
     } else {
-      // AI 로직 (변경 없음)
+      updatedPlayers[playerIndex].hand.push(card);
     }
-  } else {
-    updatedPlayers[playerIndex].hand.push(card);
-  }
 
-  // 중복 카드 제거
-  updatedPlayers[playerIndex].hand = removeDuplicateCards(updatedPlayers[playerIndex].hand);
-
-  setPlayers(updatedPlayers);
-  return updatedDeck;
-};
-
-  // handleRemoveCard 함수 수정
-const handleRemoveCard = (cardToRemove: Card) => {
-  setPlayers(prevPlayers => {
-    const updatedPlayers = [...prevPlayers];
-    // 선택된 카드를 제거
-    updatedPlayers[0].hand = updatedPlayers[0].hand.filter(card => card !== cardToRemove);
-    
-    // 만약 제거된 카드가 곱하기 카드가 아니라면, 곱하기 카드를 추가
-    if (cardToRemove.content !== '×') {
-      updatedPlayers[0].hand.push(pendingMultiplyCard!);
-    }
-    
-    return updatedPlayers;
-  });
-  setShowRemoveCardModal(false);
-
-  // 새로운 숫자 카드를 뽑아 추가
-  let [newCard, newDeck] = drawCard(deck, 'number');
-  setPlayers(prevPlayers => {
-    const updatedPlayers = [...prevPlayers];
-    updatedPlayers[0].hand.push(newCard);
     // 중복 카드 제거
-    updatedPlayers[0].hand = removeDuplicateCards(updatedPlayers[0].hand);
-    return updatedPlayers;
-  });
-  setDeck(newDeck);
-  setPendingMultiplyCard(null);
-  setCardsToChooseFrom([]);
-};
+    updatedPlayers[playerIndex].hand = removeDuplicateCards(updatedPlayers[playerIndex].hand);
+
+    setPlayers(updatedPlayers);
+    return updatedDeck;
+  };
+
+  const handleRemoveCard = (cardToRemove: Card) => {
+    setPlayers(prevPlayers => {
+      const updatedPlayers = [...prevPlayers];
+      // 선택된 카드를 제거
+      updatedPlayers[0].hand = updatedPlayers[0].hand.filter(card => 
+        !(card.content === cardToRemove.content && card.type === cardToRemove.type && card.grade === cardToRemove.grade)
+      );
+      
+      // 곱하기 카드를 추가 (선택된 카드가 곱하기 카드가 아닌 경우에만)
+      if (cardToRemove.content !== '×' && pendingMultiplyCard) {
+        updatedPlayers[0].hand.push(pendingMultiplyCard);
+      }
+      
+      return updatedPlayers;
+    });
+    setShowRemoveCardModal(false);
+  
+    // 새로운 숫자 카드를 뽑아 추가
+    let [newCard, newDeck] = drawCard(deck, 'number');
+    setPlayers(prevPlayers => {
+      const updatedPlayers = [...prevPlayers];
+      updatedPlayers[0].hand.push(newCard);
+      // 중복 카드 제거
+      updatedPlayers[0].hand = removeDuplicateCards(updatedPlayers[0].hand);
+      return updatedPlayers;
+    });
+    setDeck(newDeck);
+    setPendingMultiplyCard(null);
+    setCardsToChooseFrom([]);
+  };
 
   const handlePlayerAction = (action: 'fold' | 'call' | 'raise', amount?: number) => {
     const currentPlayer = players[currentPlayerIndex];
@@ -659,20 +677,12 @@ const handleRemoveCard = (cardToRemove: Card) => {
     }
 
     return (
-      <div className="flex">
-        <div className="flex-grow mr-4">
-          <div className="mb-8">
-            {renderPlayerHand(players[0], 0)}
-          </div>
-          <div>
-            {renderGamePhase()}
-          </div>
+      <div className="flex flex-col h-full">
+        <div className="flex-grow flex items-center justify-center">
+          {renderPlayerHand(players[0])}
         </div>
-        <div className="w-1/4">
-          <h2 className="text-2xl font-semibold mb-2">Players:</h2>
-          <div className="space-y-4">
-            {players.slice(1).map((player, index) => renderPlayerInfo(player, index + 1))}
-          </div>
+        <div className="mt-4">
+          {renderGamePhase()}
         </div>
       </div>
     );
@@ -681,66 +691,71 @@ const handleRemoveCard = (cardToRemove: Card) => {
   const renderPlayerInfo = (player: Player, index: number) => (
     <div 
       key={player.id} 
-      className="mb-4 flex items-center relative"
+      className={`mb-4 p-4 rounded-lg ${index === currentPlayerIndex ? 'bg-blue-200' : 'bg-gray-200'}`}
       onMouseEnter={() => setShowOpponentCards(index)}
       onMouseLeave={() => setShowOpponentCards(-1)}
     >
-      <div className="absolute right-full mr-2 flex items-center" style={{ display: showOpponentCards === index ? 'flex' : 'none' }}>
-        {player.hand.map((card, cardIndex) => (
-          <CardComponent
-            key={cardIndex}
-            {...card}
-            onClick={() => {}}
-            selected={false}
-            hidden={card.hidden}
-            className="w-10 h-15 mr-1 flex-shrink-0"
-          />
-        ))}
-      </div>
-      <div className={`p-2 rounded-lg ${index === currentPlayerIndex ? 'bg-blue-200' : 'bg-gray-200'}`}>
-        <div className="font-bold">{player.name}</div>
-        <div>Chips: {player.chips}</div>
-        <div>Bet: {player.bet}</div>
-        {player.nft && (
-          <img src={player.nft.image} alt={player.name} className="w-16 h-16 object-cover rounded mt-2" />
-        )}
-      </div>
+      <div className="font-bold text-lg">{player.name}</div>
+      <div>Chips: {player.chips}</div>
+      <div>Bet: {player.bet}</div>
+      {player.nft && (
+        <img src={player.nft.image} alt={player.name} className="w-16 h-16 object-cover rounded mt-2" />
+      )}
+      {showOpponentCards === index && (
+        <div className="mt-2">
+          <div className="text-sm font-semibold mb-1">Hand:</div>
+          <div className="flex flex-wrap">
+            {player.hand.map((card, cardIndex) => (
+              <CardComponent
+                key={cardIndex}
+                {...card}
+                onClick={() => {}}
+                selected={false}
+                hidden={card.hidden}
+                className="w-8 h-12 mr-1 mb-1"
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
   
   
   // renderPlayerHand 함수 수정 (필요한 경우)
-  const renderPlayerHand = (player: Player, index: number) => (
-    <div key={player.id} className="mb-4">
-      <h2 className="text-2xl font-semibold mb-2">{index === 0 ? 'Your Hand:' : `${player.name}'s Hand:`}</h2>
-      <div className="flex flex-wrap justify-center">
-        {player.hand.map((card, cardIndex) => (
-          <CardComponent
-            key={cardIndex}
-            {...card}
-            onClick={() => index === 0 && gamePhase === 'createEquation' ? handleCardClick(card) : {}}
-            selected={index === 0 && players[0].equation.includes(card)}
-            hidden={index !== 0 && card.hidden}
-            className="w-16 h-24 m-1"
-          />
-        ))}
-      </div>
+  const renderPlayerHand = (player: Player) => (
+    <div className="flex flex-wrap justify-center">
+      {player.hand.map((card, index) => (
+        <CardComponent
+          key={index}
+          {...card}
+          onClick={() => gamePhase === 'createEquation' ? handleCardClick(card) : {}}
+          selected={player.equation.some(c => c.content === card.content && c.type === card.type)}
+          hidden={card.hidden}
+          className="w-24 h-36 m-2" // 카드 크기를 더 크게 조정
+        />
+      ))}
     </div>
   );
 
   return (
-    <div className="container mx-auto p-4 relative">
-    <div className="text-center mb-6">
-      <h1 className="text-4xl font-bold mb-2">Math High-Low Game</h1>
-      <div className="text-xl font-bold">Pot: {pot}</div>
-    </div>
-  
-      {renderGameBoard()}
-  
+    <div className="flex h-screen">
+      <div className="flex-grow p-4">
+        <div className="text-center mb-6">
+          <h1 className="text-4xl font-bold mb-2">Math High-Low Game</h1>
+          <div className="text-xl font-bold">Pot: {pot}</div>
+        </div>
+        {renderGameBoard()}
+      </div>
+      <div className="w-1/4 bg-gray-100 p-4 overflow-y-auto">
+        <h2 className="text-2xl font-semibold mb-4">Players</h2>
+        {players.map((player, index) => renderPlayerInfo(player, index))}
+      </div>
+
       {showRemoveCardModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded">
-            <h2 className="text-lg font-bold mb-2">곱하기 카드를 받았습니다. 제거할 카드를 선택하세요:</h2>
+          <div className="bg-white p-6 rounded-lg">
+            <h2 className="text-xl font-bold mb-4">곱하기 카드를 받았습니다. 제거할 카드를 선택하세요:</h2>
             <div className="flex justify-center">
               {cardsToChooseFrom.map((card, index) => (
                 <CardComponent
@@ -748,13 +763,14 @@ const handleRemoveCard = (cardToRemove: Card) => {
                   {...card}
                   onClick={() => handleRemoveCard(card)}
                   selected={false}
+                  className="w-16 h-24 m-1"
                 />
               ))}
             </div>
           </div>
         </div>
       )}
-  
+
       <div className="fixed bottom-4 right-4 flex space-x-2">
         <Button onClick={() => handlePlayerAction('fold')}>Fold</Button>
         <Button onClick={() => handlePlayerAction('call')}>Call</Button>
