@@ -23,9 +23,6 @@ const Navbar = () => {
               <Link to="/collections" className={`px-4 py-2 rounded-md ${isActive('/collections')}`}>
                 Collection
               </Link>
-              <Link to="/leaderboard" className={`px-4 py-2 rounded-md ${isActive('/leaderboard')}`}>
-                Leaderboard
-              </Link>
               <Link to="/swap" className={`px-4 py-2 rounded-md ${isActive('/swap')}`}>
                 Swap
               </Link>
