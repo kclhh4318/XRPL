@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
-import PlayerComponent from './Player'; // 실제 PlayerComponent가 정의된 파일 경로로 수정하세요
 
 interface Card {
   content: string;
@@ -29,10 +28,12 @@ interface Player {
   } | null;
 }
 
+interface MathHighLowGameProps {
+  selectedNFT: Player['nft'];
+}
+
 const NUMBERS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
-
 const SYMBOLS = ['√', '×'];
-
 const BASE_CARDS: Card[] = [
   { content: '+', type: 'symbol', grade: null },
   { content: '-', type: 'symbol', grade: null },
@@ -63,19 +64,18 @@ const CardComponent: React.FC<Card & { onClick: () => void; selected: boolean }>
   );
 };
 
-const MathHighLowGame: React.FC<{ selectedNFT: Player['nft'] }> = ({ selectedNFT }) => {
+const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
   const [deck, setDeck] = useState<Card[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
-  const [gamePhase, setGamePhase] = useState<'init' | 'dealBase' | 'dealHidden' | 'dealOpen1' | 'dealOpen2' | 'firstBet' | 'finalBet' | 'createEquation' | 'chooseBet' | 'result'>('init');
+  const [gamePhase, setGamePhase] = useState<'init' | 'dealBase' | 'dealHidden' | 'dealOpen1' | 'dealOpen2' | 'firstBet' | 'dealFinal' | 'finalBet' | 'createEquation' | 'chooseBet' | 'result'>('init');
   const [pot, setPot] = useState(0);
   const [blinds] = useState({ small: 5, big: 10 });
   const [dealerIndex, setDealerIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(90);
   const [showRemoveCardModal, setShowRemoveCardModal] = useState(false);
-  const [currentRound, setCurrentRound] = useState<'init' | 'firstBet' | 'finalBet' | 'createEquation' | 'chooseBet' | 'result'>('init');
-  const [myBetAmount, setMyBetAmount] = useState<number>(0);
-  const [tempCard, setTempCard] = useState<Card | null>(null);
+  const [pendingMultiplyCard, setPendingMultiplyCard] = useState<Card | null>(null);
+  const [showOpponentCards, setShowOpponentCards] = useState<boolean>(false);
 
   useEffect(() => {
     if (gamePhase === 'createEquation' && timeLeft > 0) {
@@ -83,6 +83,10 @@ const MathHighLowGame: React.FC<{ selectedNFT: Player['nft'] }> = ({ selectedNFT
       return () => clearInterval(timer);
     }
   }, [gamePhase, timeLeft]);
+
+  useEffect(() => {
+    initializeGame();
+  }, []);
 
   const initializeGame = () => {
     const newDeck = createDeck();
@@ -96,18 +100,25 @@ const MathHighLowGame: React.FC<{ selectedNFT: Player['nft'] }> = ({ selectedNFT
     setDeck(newDeck);
     setPlayers(initialPlayers);
     setDealerIndex(Math.floor(Math.random() * 4));
-    setCurrentPlayerIndex((dealerIndex + 3) % 4);
+    setCurrentPlayerIndex((prevDealerIndex) => (prevDealerIndex + 3) % 4);
     setPot(blinds.small + blinds.big);
 
-    const updatedPlayers = [...initialPlayers];
-    updatedPlayers[(dealerIndex + 3) % 4].bet = blinds.small;
-    updatedPlayers[(dealerIndex + 3) % 4].chips -= blinds.small;
-    updatedPlayers[dealerIndex].bet = blinds.big;
-    updatedPlayers[dealerIndex].chips -= blinds.big;
+    // 블라인드 설정
+    const updatedPlayers = initialPlayers.map((player, index) => {
+      if (index === (dealerIndex + 1) % 4) {
+        return { ...player, chips: player.chips - blinds.small, bet: blinds.small };
+      }
+      if (index === (dealerIndex + 2) % 4) {
+        return { ...player, chips: player.chips - blinds.big, bet: blinds.big };
+      }
+      return player;
+    });
 
     setPlayers(updatedPlayers);
     setGamePhase('dealBase');
-    dealInitialCards(updatedPlayers, newDeck);
+
+    // dealCards 함수 호출 (비동기 처리)
+    dealCards(updatedPlayers, newDeck);
   };
 
   const createDeck = (): Card[] => {
@@ -129,19 +140,15 @@ const MathHighLowGame: React.FC<{ selectedNFT: Player['nft'] }> = ({ selectedNFT
     return [...array].sort(() => Math.random() - 0.5);
   };
 
-  const drawCard = (currentDeck: Card[], type?: 'number' | 'symbol'): [Card | undefined, Card[]] => {
+  const drawCard = (currentDeck: Card[], type?: 'number' | 'symbol'): [Card, Card[]] => {
     const availableCards = type ? currentDeck.filter(card => card.type === type) : currentDeck;
-    if (availableCards.length === 0) {
-      console.error('No cards available to draw');
-      return [undefined, currentDeck];
-    }
     const index = Math.floor(Math.random() * availableCards.length);
     const card = availableCards[index];
     const updatedDeck = currentDeck.filter((_, i) => i !== currentDeck.indexOf(card));
     return [card, updatedDeck];
   };
 
-  const dealInitialCards = (currentPlayers: Player[], currentDeck: Card[]) => {
+  const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
     const updatedPlayers = [...currentPlayers];
     let updatedDeck = [...currentDeck];
 
@@ -153,44 +160,85 @@ const MathHighLowGame: React.FC<{ selectedNFT: Player['nft'] }> = ({ selectedNFT
     // Deal hidden card
     for (let i = 0; i < updatedPlayers.length; i++) {
       let [hiddenCard, newDeck] = drawCard(updatedDeck, 'number');
-      if (hiddenCard) {
-        updatedPlayers[i].hand.push({ ...hiddenCard, hidden: i !== 0 });
-        updatedDeck = newDeck;
-      }
+      updatedPlayers[i].hand.push({ ...hiddenCard, hidden: i !== 0 });
+      updatedDeck = newDeck;
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     // Deal two open cards
     for (let j = 0; j < 2; j++) {
+      setGamePhase(j === 0 ? 'dealOpen1' : 'dealOpen2');
       for (let i = 0; i < updatedPlayers.length; i++) {
         let [openCard, newDeck] = drawCard(updatedDeck);
-        if (openCard) {
-          updatedPlayers[i].hand.push(openCard);
-          updatedDeck = newDeck;
-        }
+        updatedDeck = await handleNewCard(openCard, i, updatedPlayers, newDeck);
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
     setPlayers(updatedPlayers);
     setDeck(updatedDeck);
     setGamePhase('firstBet');
-    nextTurn();
   };
 
-  const nextTurn = () => {
-    setCurrentPlayerIndex((prevIndex) => (prevIndex + 1) % 4);
-  };
+  const handleNewCard = async (card: Card, playerIndex: number, currentPlayers: Player[], currentDeck: Card[]): Promise<Card[]> => {
+    const updatedPlayers = [...currentPlayers];
+    let updatedDeck = [...currentDeck];
 
-  const handleBet = (amount: number) => {
-    const currentPlayer = players[currentPlayerIndex];
-    if (amount <= currentPlayer.chips) {
-      // 플레이어 칩에서 베팅 금액 차감
-      currentPlayer.chips -= amount;
-      currentPlayer.bet += amount;
-      setPot(prevPot => prevPot + amount);
-  
-      // 다음 플레이어로 턴을 넘김
-      nextTurn();
+    if (card.type === 'symbol' && card.content === '×') {
+      if (playerIndex === 0) {
+        setPendingMultiplyCard(card);
+        setShowRemoveCardModal(true);
+        await new Promise<void>(resolve => {
+          const checkInterval = setInterval(() => {
+            if (!showRemoveCardModal) {
+              clearInterval(checkInterval);
+              resolve();
+            }
+          }, 100);
+        });
+      } else {
+        // AI 로직 (변경 없음)
+        const removableCards = updatedPlayers[playerIndex].hand.filter(c => ['×', '+', '-'].includes(c.content));
+        if (removableCards.length > 0) {
+          const randomIndex = Math.floor(Math.random() * removableCards.length);
+          const removedCard = removableCards[randomIndex];
+          updatedPlayers[playerIndex].hand = updatedPlayers[playerIndex].hand.filter(c => c !== removedCard);
+          updatedPlayers[playerIndex].hand.push(card);
+          let [numberCard, newDeck] = drawCard(updatedDeck, 'number');
+          updatedPlayers[playerIndex].hand.push(numberCard);
+          updatedDeck = newDeck;
+        } else {
+          updatedPlayers[playerIndex].hand.push(card);
+        }
+      }
+    } else {
+      updatedPlayers[playerIndex].hand.push(card);
     }
+
+    setPlayers(updatedPlayers);
+    return updatedDeck;
+  };
+
+  const handleRemoveCard = (cardToRemove: Card) => {
+    setPlayers(prevPlayers => {
+      const updatedPlayers = [...prevPlayers];
+      updatedPlayers[0].hand = updatedPlayers[0].hand.filter(card => card !== cardToRemove);
+      if (pendingMultiplyCard) {
+        updatedPlayers[0].hand.push(pendingMultiplyCard);
+      }
+      return updatedPlayers;
+    });
+    setShowRemoveCardModal(false);
+  
+    // 새로운 숫자 카드를 뽑아 추가합니다.
+    let [newCard, newDeck] = drawCard(deck, 'number');
+    setPlayers(prevPlayers => {
+      const updatedPlayers = [...prevPlayers];
+      updatedPlayers[0].hand.push(newCard);
+      return updatedPlayers;
+    });
+    setDeck(newDeck);
+    setPendingMultiplyCard(null);
   };
 
   const handlePlayerAction = (action: 'fold' | 'call' | 'raise', amount?: number) => {
@@ -231,16 +279,18 @@ const MathHighLowGame: React.FC<{ selectedNFT: Player['nft'] }> = ({ selectedNFT
     }
   };
 
-  const dealFinalCard = () => {
+  const nextTurn = () => {
+    setCurrentPlayerIndex((prevIndex) => (prevIndex + 1) % 4);
+  };
+
+  const dealFinalCard = async () => {
     const updatedPlayers = [...players];
     let updatedDeck = [...deck];
 
     for (let i = 0; i < updatedPlayers.length; i++) {
       let [finalCard, newDeck] = drawCard(updatedDeck);
-      if (finalCard) {
-        updatedPlayers[i].hand.push(finalCard);
-        updatedDeck = newDeck;
-      }
+      updatedDeck = await handleNewCard(finalCard, i, updatedPlayers, newDeck);
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     setPlayers(updatedPlayers);
@@ -272,12 +322,14 @@ const MathHighLowGame: React.FC<{ selectedNFT: Player['nft'] }> = ({ selectedNFT
     if (gamePhase === 'createEquation') {
       setPlayers(prevPlayers => {
         const updatedPlayers = [...prevPlayers];
-        const currentPlayer = updatedPlayers[currentPlayerIndex];
+        const currentPlayer = updatedPlayers[0];
+        
         if (currentPlayer.equation.includes(card)) {
           currentPlayer.equation = currentPlayer.equation.filter(c => c !== card);
         } else {
           currentPlayer.equation.push(card);
         }
+        
         return updatedPlayers;
       });
     }
@@ -333,32 +385,21 @@ const MathHighLowGame: React.FC<{ selectedNFT: Player['nft'] }> = ({ selectedNFT
   const generateValidEquation = (hand: Card[]): Card[] => {
     const numbers = hand.filter(card => card.type === 'number');
     const symbols = hand.filter(card => card.type === 'symbol');
-
+    
     let equation: Card[] = [];
-
+    
     numbers.forEach(number => {
       equation.push(number);
       if (symbols.length > 0 && equation.length < hand.length) {
         equation.push(symbols.shift()!);
       }
     });
-
+    
     while (symbols.length > 0 && equation.length < hand.length) {
       equation.push(symbols.shift()!);
     }
-
+    
     return equation;
-  };
-
-  const handleRemoveCard = (cardToRemove: Card) => {
-    setPlayers(prevPlayers => {
-      const updatedPlayers = [...prevPlayers];
-      const currentPlayer = updatedPlayers[currentPlayerIndex];
-      currentPlayer.hand = currentPlayer.hand.filter(card => card !== cardToRemove);
-      return updatedPlayers;
-    });
-    setShowRemoveCardModal(false);
-    setTempCard(null);
   };
 
   const handleChooseBet = (bet: 'high' | 'low') => {
@@ -429,13 +470,12 @@ const MathHighLowGame: React.FC<{ selectedNFT: Player['nft'] }> = ({ selectedNFT
       case 'finalBet':
         return (
           <div className="flex flex-col items-center mt-4">
-            <input 
-              type="number" 
-              value={myBetAmount} 
-              onChange={(e) => setMyBetAmount(Number(e.target.value))}
-              className="mb-2 p-2 border rounded"
-            />
-            <Button onClick={() => handleBet(myBetAmount)}>Place Bet</Button>
+            <div className="text-xl font-bold mb-2">Current Player: {players[currentPlayerIndex].name}</div>
+            <div className="flex space-x-2">
+              <Button onClick={() => handlePlayerAction('fold')}>Fold</Button>
+              <Button onClick={() => handlePlayerAction('call')}>Call</Button>
+              <Button onClick={() => handlePlayerAction('raise', 20)}>Raise</Button>
+            </div>
           </div>
         );
       case 'createEquation':
@@ -446,117 +486,238 @@ const MathHighLowGame: React.FC<{ selectedNFT: Player['nft'] }> = ({ selectedNFT
               <Button onClick={handleCreateEquation} className="mr-2">Submit Equation</Button>
               <Button onClick={() => setPlayers(prevPlayers => {
                 const updatedPlayers = [...prevPlayers];
-                updatedPlayers[currentPlayerIndex].equation = [];
+                updatedPlayers[0].equation = [];
                 return updatedPlayers;
               })} variant="outline">Clear Equation</Button>
             </div>
             <div className="mt-4 p-4 bg-white rounded-lg">
               <h3 className="text-lg font-semibold mb-2">Your Equation:</h3>
               <div className="flex justify-center">
-                {players[currentPlayerIndex].equation.map((card, index) => (
+                {players[0].equation.map((card, index) => (
+                  <CardComponent 
+                    key={index} 
+                    {...card} 
+                    onClick={() => handleCardClick(card)} 
+                    selected={true} 
+                    hidden={false}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
+        );
+          return (
+            <>
+              <div className="text-xl font-bold mb-2">Time left: {timeLeft} seconds</div>
+              <div className="flex justify-center mt-4">
+                <Button onClick={handleCreateEquation} className="mr-2">Submit Equation</Button>
+                <Button onClick={() => setPlayers(prevPlayers => {
+                  const updatedPlayers = [...prevPlayers];
+                  updatedPlayers[0].equation = [];
+                  return updatedPlayers;
+                })} variant="outline">Clear Equation</Button>
+              </div>
+              <div className="mt-4 p-4 bg-white rounded-lg">
+                <h3 className="text-lg font-semibold mb-2">Your Hand:</h3>
+                <div className="flex justify-center">
+                  {players[0].hand.map((card, index) => (
+                    <CardComponent 
+                      key={index} 
+                      {...card} 
+                      onClick={() => handleCardClick(card)} 
+                      selected={players[0].equation.includes(card)} 
+                      hidden={card.hidden}
+                    />
+                  ))}
+                </div>
+                <h3 className="text-lg font-semibold mt-4 mb-2">Your Equation:</h3>
+                <div className="flex justify-center">
+                  {players[0].equation.map((card, index) => (
+                    <CardComponent 
+                      key={index} 
+                      {...card} 
+                      onClick={() => handleCardClick(card)} 
+                      selected={true} 
+                      hidden={false}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          );
+        return (
+          <>
+            <div className="text-xl font-bold mb-2">Time left: {timeLeft} seconds</div>
+            <div className="flex justify-center mt-4">
+              <Button onClick={handleCreateEquation} className="mr-2">Submit Equation</Button>
+              <Button onClick={() => setPlayers(prevPlayers => {
+                const updatedPlayers = [...prevPlayers];
+                updatedPlayers[0].equation = [];
+                return updatedPlayers;
+              })} variant="outline">Clear Equation</Button>
+            </div>
+            <div className="mt-4 p-4 bg-white rounded-lg">
+              <h3 className="text-lg font-semibold mb-2">Your Equation:</h3>
+              <div className="flex justify-center">
+                {players[0].equation.map((card, index) => (
                   <CardComponent key={index} {...card} onClick={() => handleCardClick(card)} selected={true} hidden={false} />
                 ))}
               </div>
             </div>
           </>
         );
-        case 'chooseBet':
-          return (
-            <div className="flex flex-col items-center mt-4">
-              <div className="text-xl font-bold mb-2">Your Result: {players[currentPlayerIndex].result !== null ? players[currentPlayerIndex].result.toFixed(2) : 'N/A'}</div>
-              <div className="flex justify-center">
-                <Button onClick={() => handleChooseBet('high')} className="mr-2">Bet High</Button>
-                <Button onClick={() => handleChooseBet('low')}>Bet Low</Button>
-              </div>
-            </div>
-          );
-        case 'result':
-          return (
-            <div className="text-center mt-4">
-              <h2 className="text-2xl font-bold">{determineWinner()}</h2>
-              <div className="flex mt-4 justify-between">
-                {players.map((player, index) => (
-                  <div key={player.id}>
-                    <h3 className="text-xl font-semibold">{player.name}'s Equation:</h3>
-                    <div className="flex justify-center">
-                      {player.equation.map((card, cardIndex) => (
-                        <CardComponent key={cardIndex} {...card} onClick={() => {}} selected={false} hidden={false} />
-                      ))}
-                    </div>
-                    <div>Result: {player.result !== null ? player.result.toFixed(2) : 'N/A'}</div>
-                    <div>Bet: {player.betChoice}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4">
-                {players.map(player => (
-                  <div key={player.id}>{player.name}'s chips: {player.chips}</div>
-                ))}
-                <div>Pot: {pot}</div>
-              </div>
-              <Button onClick={initializeGame} className="mt-2">Play Again</Button>
-            </div>
-          );
-      }
-    };
-  
-    return (
-      <div className="container mx-auto p-4 relative">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-6">Math High-Low Game</h1>
-          <div className="text-xl font-bold mb-4">Pot: {pot}</div>
-        </div>
-  
-        {showRemoveCardModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white p-4 rounded">
-              <h2 className="text-lg font-bold mb-2">곱하기 카드를 받았습니다. 제거할 카드를 선택하세요:</h2>
-              <div className="flex justify-center">
-                {players[currentPlayerIndex].hand.filter(card => ['×', '+', '-'].includes(card.content)).map((card, index) => (
-                  <CardComponent
-                    key={index}
-                    {...card}
-                    onClick={() => handleRemoveCard(card)}
-                    selected={false}
-                  />
-                ))}
-              </div>
+      case 'chooseBet':
+        return (
+          <div className="flex flex-col items-center mt-4">
+            <div className="text-xl font-bold mb-2">Your Result: {players[0].result !== null ? players[0].result.toFixed(2) : 'N/A'}</div>
+            <div className="flex justify-center">
+              <Button onClick={() => handleChooseBet('high')} className="mr-2">Bet High</Button>
+              <Button onClick={() => handleChooseBet('low')}>Bet Low</Button>
             </div>
           </div>
-        )}
-  
-        <div className="flex flex-wrap justify-around mb-4">
-          {players.map((player, index) => (
-            <PlayerComponent
-              key={player.id}
-              player={player}
-              isCurrentPlayer={index === currentPlayerIndex}
-              showCards={index === currentPlayerIndex || currentRound === 'result'}
-            />
-          ))}
-        </div>
-  
-        <div className="flex-grow">
-          {currentRound !== 'init' && (
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold mb-2">Your Hand:</h2>
-              <div className="flex flex-wrap justify-center">
-                {players[currentPlayerIndex].hand.map((card, index) => (
-                  <CardComponent
-                    key={index}
-                    {...card}
-                    onClick={() => handleCardClick(card)}
-                    selected={players[currentPlayerIndex].equation.includes(card)}
-                    hidden={card.hidden === true}
-                  />
-                ))}
-              </div>
+        );
+      case 'result':
+        return (
+          <div className="text-center mt-4">
+            <h2 className="text-2xl font-bold">{determineWinner()}</h2>
+            <div className="flex mt-4 justify-between">
+              {players.map((player, index) => (
+                <div key={player.id}>
+                  <h3 className="text-xl font-semibold">{player.name}'s Equation:</h3>
+                  <div className="flex justify-center">
+                    {player.equation.map((card, cardIndex) => (
+                      <CardComponent key={cardIndex} {...card} onClick={() => {}} selected={false} hidden={false} />
+                    ))}
+                  </div>
+                  <div>Result: {player.result !== null ? player.result.toFixed(2) : 'N/A'}</div>
+                  <div>Bet: {player.betChoice}</div>
+                </div>
+              ))}
             </div>
-          )}
-          {renderGamePhase()}
-        </div>
+            <div className="mt-4">
+              {players.map(player => (
+                <div key={player.id}>{player.name}'s chips: {player.chips}</div>
+              ))}
+              <div>Pot: {pot}</div>
+            </div>
+            <Button onClick={initializeGame} className="mt-2">Play Again</Button>
+          </div>
+        );
+    }
+  };
+
+  const getUniqueCards = (cards: (Card | null)[]): Card[] => {
+    const uniqueCards: Card[] = [];
+    const seenContents = new Set<string>();
+
+    cards.forEach(card => {
+      if (card && !seenContents.has(card.content)) {
+        uniqueCards.push(card);
+        seenContents.add(card.content);
+      }
+    });
+
+    return uniqueCards;
+  };
+
+  const renderGameBoard = () => {
+    if (players.length === 0 || !players[0]) {
+      return <div>Loading...</div>;
+    }
+
+    return (
+      <div className="flex-grow">
+        {renderGamePhase()}
       </div>
     );
   };
-  
-  export default MathHighLowGame;
+
+  const renderPlayerInfo = (player: Player, index: number) => (
+    <div 
+      key={player.id} 
+      className={`p-2 rounded-lg ${index === currentPlayerIndex ? 'bg-blue-200' : 'bg-gray-200'}`}
+      onMouseEnter={() => setShowOpponentCards(true)}
+      onMouseLeave={() => setShowOpponentCards(false)}
+    >
+      <div className="font-bold">{player.name}</div>
+      <div>Chips: {player.chips}</div>
+      <div>Bet: {player.bet}</div>
+      {player.nft && (
+        <img src={player.nft.image} alt={player.name} className="w-16 h-16 object-cover rounded mt-2" />
+      )}
+      {showOpponentCards && index !== 0 && renderPlayerHand(player, index)}
+    </div>
+  );
+
+  const renderPlayerHand = (player: Player, index: number) => (
+    <div key={player.id} className="mb-4">
+      <h2 className="text-2xl font-semibold mb-2">{index === 0 ? 'Your Hand:' : `${player.name}'s Hand:`}</h2>
+      <div className="flex flex-wrap justify-center">
+        {player.hand.map((card, cardIndex) => (
+          <CardComponent
+            key={cardIndex}
+            {...card}
+            onClick={() => index === 0 && gamePhase === 'createEquation' ? handleCardClick(card) : {}}
+            selected={index === 0 && players[0].equation.includes(card)}
+            hidden={index !== 0}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="container mx-auto p-4 relative">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold mb-6">Math High-Low Game</h1>
+        <div className="text-xl font-bold mb-4">Pot: {pot}</div>
+      </div>
+
+      {players.length > 0 ? (
+        <div className="flex">
+          <div className="flex-grow">
+            {renderPlayerHand(players[0], 0)}
+            {renderGamePhase()}
+          </div>
+          <div className="w-1/4 ml-4">
+            <h2 className="text-2xl font-semibold mb-2">Players:</h2>
+            <div className="space-y-2">
+              {players.slice(1).map((player, index) => renderPlayerInfo(player, index + 1))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div>Loading game...</div>
+      )}
+
+      {showRemoveCardModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-4 rounded">
+            <h2 className="text-lg font-bold mb-2">곱하기 카드를 받았습니다. 제거할 카드를 선택하세요:</h2>
+            <div className="flex justify-center">
+              {getUniqueCards([
+                ...players[0].hand.filter(card => ['×', '+', '-'].includes(card.content)),
+                pendingMultiplyCard
+              ]).map((card, index) => (
+                <CardComponent
+                  key={index}
+                  {...card}
+                  onClick={() => handleRemoveCard(card)}
+                  selected={false}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="fixed bottom-4 right-4 flex space-x-2">
+        <Button onClick={() => handlePlayerAction('fold')}>Fold</Button>
+        <Button onClick={() => handlePlayerAction('call')}>Call</Button>
+        <Button onClick={() => handlePlayerAction('raise', 20)}>Raise</Button>
+      </div>
+    </div>
+  );
+};
+
+export default MathHighLowGame;
