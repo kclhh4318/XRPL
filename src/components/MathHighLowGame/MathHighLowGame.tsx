@@ -524,92 +524,84 @@ const handleNewCard = async (card: Card, playerIndex: number, currentPlayers: Pl
   const renderGamePhase = () => {
     switch (gamePhase) {
       case 'createEquation':
-  return (
-    <>
-      <div className="text-xl font-bold mb-2">남은 시간: {timeLeft}초</div>
-      {currentPlayerIndex === 0 && (
-        <div className="text-green-500 text-xl font-bold">당신의 차례입니다</div>
-      )}
-      <div className="flex justify-center mt-4">
-        <Button onClick={handleCreateEquation} className="mr-2">수식 제출</Button>
-        <Button onClick={() => setPlayers(prevPlayers => {
-          const updatedPlayers = [...prevPlayers];
-          updatedPlayers[0].equation = []; // 사용자 수식 초기화
-          return updatedPlayers;
-        })} variant="outline">수식 초기화</Button>
-      </div>
-      <div className="mt-4 p-4 bg-white rounded-lg">
-        <h3 className="text-lg font-semibold mb-2">당신의 카드:</h3>
-        <div className="flex justify-center">
-          {players[0].hand.map((card, index) => (
-            <CardComponent 
-              key={index} 
-              {...card} 
-              onClick={() => handleCardClick(card)} 
-              selected={players[0].equation.some(c => c.content === card.content && c.type === card.type)} 
-              hidden={card.hidden}
-            />
-          ))}
-        </div>
-        <h3 className="text-lg font-semibold mt-4 mb-2">당신의 수식:</h3>
-        <div className="flex justify-center">
-          {players[0].equation.map((card, index) => (
-            <CardComponent 
-              key={index} 
-              {...card} 
-              onClick={() => handleCardClick(card)} 
-              selected={true} 
-              hidden={false}
-            />
-          ))}
-        </div>
-      </div>
-    </>
-  );
-
         return (
           <>
-            <div className="text-xl font-bold mb-2">Time left: {timeLeft} seconds</div>
+            <div className="text-xl font-bold mb-2">남은 시간: {timeLeft}초</div>
             {currentPlayerIndex === 0 && (
-              <div className="text-green-500 text-xl font-bold">Your Turn</div>
+              <div className="text-green-500 text-xl font-bold">당신의 차례입니다</div>
             )}
             <div className="flex justify-center mt-4">
-              <Button onClick={handleCreateEquation} className="mr-2">Submit Equation</Button>
+              <Button onClick={handleCreateEquation} className="mr-2">수식 제출</Button>
               <Button onClick={() => setPlayers(prevPlayers => {
                 const updatedPlayers = [...prevPlayers];
                 updatedPlayers[0].equation = []; // 사용자 수식 초기화
                 return updatedPlayers;
-              })} variant="outline">Clear Equation</Button>
+              })} variant="outline">수식 초기화</Button>
             </div>
-                  <div className="mt-4 p-4 bg-white rounded-lg">
-                    <h3 className="text-lg font-semibold mb-2">Your Hand:</h3>
-                    <div className="flex justify-center">
-                      {players[0].hand.map((card, index) => (
-                        <CardComponent 
-                          key={index} 
-                          {...card} 
-                          onClick={() => handleCardClick(card)} 
-                          selected={players[0].equation.includes(card)} 
-                          hidden={card.hidden}
-                        />
-                      ))}
-                    </div>
-                    <h3 className="text-lg font-semibold mt-4 mb-2">Your Equation:</h3>
-                    <div className="flex justify-center">
-                      {players[0].equation.map((card, index) => (
-                        <CardComponent 
-                          key={index} 
-                          {...card} 
-                          onClick={() => handleCardClick(card)} 
-                          selected={true} 
-                          hidden={false}
-                        />
-                      ))}
-                    </div>
+            <div className="mt-4 p-4 bg-white rounded-lg">
+              <h3 className="text-lg font-semibold mb-2">당신의 카드:</h3>
+              <div className="flex justify-center">
+                {players[0].hand.map((card, index) => (
+                  <CardComponent 
+                    key={index} 
+                    {...card} 
+                    onClick={() => handleCardClick(card)} 
+                    selected={players[0].equation.some(c => c.content === card.content && c.type === card.type)} 
+                    hidden={card.hidden}
+                  />
+                ))}
+              </div>
+              <h3 className="text-lg font-semibold mt-4 mb-2">당신의 수식:</h3>
+              <div className="flex justify-center">
+                {players[0].equation.map((card, index) => (
+                  <CardComponent 
+                    key={index} 
+                    {...card} 
+                    onClick={() => handleCardClick(card)} 
+                    selected={true} 
+                    hidden={false}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
+        );
+        case 'chooseBet':
+        return (
+          <div className="flex flex-col items-center mt-4">
+            <div className="text-xl font-bold mb-2">Your Result: {players[0].result !== null ? players[0].result.toFixed(2) : 'N/A'}</div>
+            <div className="flex justify-center">
+              <Button onClick={() => handleChooseBet('high')} className="mr-2">Bet High</Button>
+              <Button onClick={() => handleChooseBet('low')}>Bet Low</Button>
+            </div>
+          </div>
+        );
+        case 'result':
+        return (
+          <div className="text-center mt-4">
+            <h2 className="text-2xl font-bold">{determineWinner()}</h2>
+            <div className="flex mt-4 justify-between">
+              {players.map((player, index) => (
+                <div key={player.id}>
+                  <h3 className="text-xl font-semibold">{player.name}'s Equation:</h3>
+                  <div className="flex justify-center">
+                    {player.equation.map((card, cardIndex) => (
+                      <CardComponent key={cardIndex} {...card} onClick={() => {}} selected={false} hidden={false} />
+                    ))}
                   </div>
-                </>
-              );
-      // 다른 게임 페이즈에 대한 로직도 이곳에 추가 가능
+                  <div>Result: {player.result !== null ? player.result.toFixed(2) : 'N/A'}</div>
+                  <div>Bet: {player.betChoice}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4">
+              <div>Pot: {pot}</div>
+            </div>
+            <Button onClick={initializeGame} className="mt-2">Play Again</Button>
+          </div>
+        );
+      
+
     }
   };
 
