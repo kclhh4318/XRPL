@@ -76,6 +76,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
   const [showRemoveCardModal, setShowRemoveCardModal] = useState(false);
   const [pendingMultiplyCard, setPendingMultiplyCard] = useState<Card | null>(null);
   const [showOpponentCards, setShowOpponentCards] = useState<boolean>(false);
+  const [isChoosingMultiplyCard, setIsChoosingMultiplyCard] = useState(false);
 
   useEffect(() => {
     if (gamePhase === 'createEquation' && timeLeft > 0) {
@@ -151,30 +152,41 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
   const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
     const updatedPlayers = [...currentPlayers];
     let updatedDeck = [...currentDeck];
-
+  
     // Deal base cards to all players
     updatedPlayers.forEach(player => {
       player.hand = [...BASE_CARDS];
     });
-
+  
+    // Function to check if a card is already in player's hand
+    const isCardInHand = (player: Player, card: Card) => {
+      return player.hand.some(c => c.content === card.content && c.type === card.type);
+    };
+  
     // Deal hidden card
     for (let i = 0; i < updatedPlayers.length; i++) {
       let [hiddenCard, newDeck] = drawCard(updatedDeck, 'number');
+      while (isCardInHand(updatedPlayers[i], hiddenCard)) {
+        [hiddenCard, newDeck] = drawCard(newDeck, 'number');
+      }
       updatedPlayers[i].hand.push({ ...hiddenCard, hidden: i !== 0 });
       updatedDeck = newDeck;
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-
+  
     // Deal two open cards
     for (let j = 0; j < 2; j++) {
       setGamePhase(j === 0 ? 'dealOpen1' : 'dealOpen2');
       for (let i = 0; i < updatedPlayers.length; i++) {
         let [openCard, newDeck] = drawCard(updatedDeck);
+        while (isCardInHand(updatedPlayers[i], openCard)) {
+          [openCard, newDeck] = drawCard(newDeck);
+        }
         updatedDeck = await handleNewCard(openCard, i, updatedPlayers, newDeck);
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
-
+  
     setPlayers(updatedPlayers);
     setDeck(updatedDeck);
     setGamePhase('firstBet');
@@ -183,11 +195,12 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
   const handleNewCard = async (card: Card, playerIndex: number, currentPlayers: Player[], currentDeck: Card[]): Promise<Card[]> => {
     const updatedPlayers = [...currentPlayers];
     let updatedDeck = [...currentDeck];
-
+  
     if (card.type === 'symbol' && card.content === '×') {
       if (playerIndex === 0) {
+        // 플레이어가 곱하기 카드를 받았을 때
         setPendingMultiplyCard(card);
-        setShowRemoveCardModal(true);
+        setShowRemoveCardModal(true); // 모달을 열어 더하기, 빼기, 곱하기 중 선택하도록 함
         await new Promise<void>(resolve => {
           const checkInterval = setInterval(() => {
             if (!showRemoveCardModal) {
@@ -197,8 +210,8 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
           }, 100);
         });
       } else {
-        // AI 로직 (변경 없음)
-        const removableCards = updatedPlayers[playerIndex].hand.filter(c => ['×', '+', '-'].includes(c.content));
+        // AI 로직
+        const removableCards = updatedPlayers[playerIndex].hand.filter(c => ['+', '-', '×'].includes(c.content));
         if (removableCards.length > 0) {
           const randomIndex = Math.floor(Math.random() * removableCards.length);
           const removedCard = removableCards[randomIndex];
@@ -207,14 +220,17 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
           let [numberCard, newDeck] = drawCard(updatedDeck, 'number');
           updatedPlayers[playerIndex].hand.push(numberCard);
           updatedDeck = newDeck;
-        } else {
-          updatedPlayers[playerIndex].hand.push(card);
         }
       }
+    } else if (card.type === 'symbol' && card.content === '√') {
+      updatedPlayers[playerIndex].hand.push(card);
+      let [numberCard, newDeck] = drawCard(updatedDeck, 'number');
+      updatedPlayers[playerIndex].hand.push(numberCard);
+      updatedDeck = newDeck;
     } else {
       updatedPlayers[playerIndex].hand.push(card);
     }
-
+  
     setPlayers(updatedPlayers);
     return updatedDeck;
   };
@@ -223,9 +239,11 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
     setPlayers(prevPlayers => {
       const updatedPlayers = [...prevPlayers];
       updatedPlayers[0].hand = updatedPlayers[0].hand.filter(card => card !== cardToRemove);
+  
       if (pendingMultiplyCard) {
         updatedPlayers[0].hand.push(pendingMultiplyCard);
       }
+  
       return updatedPlayers;
     });
     setShowRemoveCardModal(false);
@@ -322,18 +340,20 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
     if (gamePhase === 'createEquation') {
       setPlayers(prevPlayers => {
         const updatedPlayers = [...prevPlayers];
-        const currentPlayer = updatedPlayers[0];
+        const currentPlayer = updatedPlayers[0]; // 현재 사용자 플레이어
         
+        // 카드가 이미 선택된 경우 삭제, 그렇지 않으면 추가
         if (currentPlayer.equation.includes(card)) {
           currentPlayer.equation = currentPlayer.equation.filter(c => c !== card);
         } else {
           currentPlayer.equation.push(card);
         }
-        
+  
         return updatedPlayers;
       });
     }
   };
+  
 
   const calculateResult = (equation: Card[]): number | null => {
     try {
@@ -459,39 +479,36 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
 
   const renderGamePhase = () => {
     switch (gamePhase) {
-      case 'init':
-        return <Button onClick={initializeGame}>Start Game</Button>;
-      case 'dealBase':
-      case 'dealHidden':
-      case 'dealOpen1':
-      case 'dealOpen2':
-        return <div className="text-xl font-bold">Dealing cards...</div>;
-      case 'firstBet':
-      case 'finalBet':
-        return (
-          <div className="flex flex-col items-center mt-4">
-            <div className="text-xl font-bold mb-2">Current Player: {players[currentPlayerIndex].name}</div>
-            <div className="flex space-x-2">
-              <Button onClick={() => handlePlayerAction('fold')}>Fold</Button>
-              <Button onClick={() => handlePlayerAction('call')}>Call</Button>
-              <Button onClick={() => handlePlayerAction('raise', 20)}>Raise</Button>
-            </div>
-          </div>
-        );
       case 'createEquation':
-        return (
-          <>
-            <div className="text-xl font-bold mb-2">Time left: {timeLeft} seconds</div>
-            <div className="flex justify-center mt-4">
-              <Button onClick={handleCreateEquation} className="mr-2">Submit Equation</Button>
-              <Button onClick={() => setPlayers(prevPlayers => {
-                const updatedPlayers = [...prevPlayers];
-                updatedPlayers[0].equation = [];
-                return updatedPlayers;
-              })} variant="outline">Clear Equation</Button>
-            </div>
+
+  return (
+    <>
+      <div className="text-xl font-bold mb-2">Time left: {timeLeft} seconds</div>
+      {currentPlayerIndex === 0 && (
+        <div className="text-green-500 text-xl font-bold">Your Turn</div>
+      )}
+      <div className="flex justify-center mt-4">
+        <Button onClick={handleCreateEquation} className="mr-2">Submit Equation</Button>
+        <Button onClick={() => setPlayers(prevPlayers => {
+          const updatedPlayers = [...prevPlayers];
+          updatedPlayers[0].equation = []; // 사용자 수식 초기화
+          return updatedPlayers;
+        })} variant="outline">Clear Equation</Button>
+      </div>
             <div className="mt-4 p-4 bg-white rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">Your Equation:</h3>
+              <h3 className="text-lg font-semibold mb-2">Your Hand:</h3>
+              <div className="flex justify-center">
+                {players[0].hand.map((card, index) => (
+                  <CardComponent 
+                    key={index} 
+                    {...card} 
+                    onClick={() => handleCardClick(card)} 
+                    selected={players[0].equation.includes(card)} 
+                    hidden={card.hidden}
+                  />
+                ))}
+              </div>
+              <h3 className="text-lg font-semibold mt-4 mb-2">Your Equation:</h3>
               <div className="flex justify-center">
                 {players[0].equation.map((card, index) => (
                   <CardComponent 
@@ -506,103 +523,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
             </div>
           </>
         );
-          return (
-            <>
-              <div className="text-xl font-bold mb-2">Time left: {timeLeft} seconds</div>
-              <div className="flex justify-center mt-4">
-                <Button onClick={handleCreateEquation} className="mr-2">Submit Equation</Button>
-                <Button onClick={() => setPlayers(prevPlayers => {
-                  const updatedPlayers = [...prevPlayers];
-                  updatedPlayers[0].equation = [];
-                  return updatedPlayers;
-                })} variant="outline">Clear Equation</Button>
-              </div>
-              <div className="mt-4 p-4 bg-white rounded-lg">
-                <h3 className="text-lg font-semibold mb-2">Your Hand:</h3>
-                <div className="flex justify-center">
-                  {players[0].hand.map((card, index) => (
-                    <CardComponent 
-                      key={index} 
-                      {...card} 
-                      onClick={() => handleCardClick(card)} 
-                      selected={players[0].equation.includes(card)} 
-                      hidden={card.hidden}
-                    />
-                  ))}
-                </div>
-                <h3 className="text-lg font-semibold mt-4 mb-2">Your Equation:</h3>
-                <div className="flex justify-center">
-                  {players[0].equation.map((card, index) => (
-                    <CardComponent 
-                      key={index} 
-                      {...card} 
-                      onClick={() => handleCardClick(card)} 
-                      selected={true} 
-                      hidden={false}
-                    />
-                  ))}
-                </div>
-              </div>
-            </>
-          );
-        return (
-          <>
-            <div className="text-xl font-bold mb-2">Time left: {timeLeft} seconds</div>
-            <div className="flex justify-center mt-4">
-              <Button onClick={handleCreateEquation} className="mr-2">Submit Equation</Button>
-              <Button onClick={() => setPlayers(prevPlayers => {
-                const updatedPlayers = [...prevPlayers];
-                updatedPlayers[0].equation = [];
-                return updatedPlayers;
-              })} variant="outline">Clear Equation</Button>
-            </div>
-            <div className="mt-4 p-4 bg-white rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">Your Equation:</h3>
-              <div className="flex justify-center">
-                {players[0].equation.map((card, index) => (
-                  <CardComponent key={index} {...card} onClick={() => handleCardClick(card)} selected={true} hidden={false} />
-                ))}
-              </div>
-            </div>
-          </>
-        );
-      case 'chooseBet':
-        return (
-          <div className="flex flex-col items-center mt-4">
-            <div className="text-xl font-bold mb-2">Your Result: {players[0].result !== null ? players[0].result.toFixed(2) : 'N/A'}</div>
-            <div className="flex justify-center">
-              <Button onClick={() => handleChooseBet('high')} className="mr-2">Bet High</Button>
-              <Button onClick={() => handleChooseBet('low')}>Bet Low</Button>
-            </div>
-          </div>
-        );
-      case 'result':
-        return (
-          <div className="text-center mt-4">
-            <h2 className="text-2xl font-bold">{determineWinner()}</h2>
-            <div className="flex mt-4 justify-between">
-              {players.map((player, index) => (
-                <div key={player.id}>
-                  <h3 className="text-xl font-semibold">{player.name}'s Equation:</h3>
-                  <div className="flex justify-center">
-                    {player.equation.map((card, cardIndex) => (
-                      <CardComponent key={cardIndex} {...card} onClick={() => {}} selected={false} hidden={false} />
-                    ))}
-                  </div>
-                  <div>Result: {player.result !== null ? player.result.toFixed(2) : 'N/A'}</div>
-                  <div>Bet: {player.betChoice}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4">
-              {players.map(player => (
-                <div key={player.id}>{player.name}'s chips: {player.chips}</div>
-              ))}
-              <div>Pot: {pot}</div>
-            </div>
-            <Button onClick={initializeGame} className="mt-2">Play Again</Button>
-          </div>
-        );
+      // 다른 게임 페이즈에 대한 로직도 이곳에 추가 가능
     }
   };
 
@@ -659,7 +580,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
             {...card}
             onClick={() => index === 0 && gamePhase === 'createEquation' ? handleCardClick(card) : {}}
             selected={index === 0 && players[0].equation.includes(card)}
-            hidden={index !== 0}
+            hidden={index !== 0 && card.hidden}
           />
         ))}
       </div>
@@ -695,10 +616,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
           <div className="bg-white p-4 rounded">
             <h2 className="text-lg font-bold mb-2">곱하기 카드를 받았습니다. 제거할 카드를 선택하세요:</h2>
             <div className="flex justify-center">
-              {getUniqueCards([
-                ...players[0].hand.filter(card => ['×', '+', '-'].includes(card.content)),
-                pendingMultiplyCard
-              ]).map((card, index) => (
+              {players[0].hand.filter(card => ['+', '-', '×'].includes(card.content)).map((card, index) => (
                 <CardComponent
                   key={index}
                   {...card}
@@ -710,6 +628,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
           </div>
         </div>
       )}
+
       
       <div className="fixed bottom-4 right-4 flex space-x-2">
         <Button onClick={() => handlePlayerAction('fold')}>Fold</Button>

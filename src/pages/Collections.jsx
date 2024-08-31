@@ -8,13 +8,12 @@ const Collections = () => {
   useEffect(() => {
     const fetchCollections = async () => {
       try {
-        const response = await axios.get('https://api.reservoir.tools/collections/v5', {
+        const response = await axios.get('https://marketplace-api.onxrp.com/api/collections?page=1&per_page=20&sort=total_volume&order=desc&filters[status]=active&filters[listed_nfts]=true', {
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': process.env.REACT_APP_RESERVOIR_API_KEY
           }
         });
-        setCollections(response.data.collections);
+        setCollections(response.data.data);
       } catch (error) {
         console.error('Error fetching collection data:', error);
       }
@@ -28,7 +27,7 @@ const Collections = () => {
       <h1 className="text-3xl font-bold mb-6">NFT Collections Ranking</h1>
       
       <div className="mb-4">
-      <button
+        <button
           className={`mr-4 px-4 py-2 rounded ${activeTab === 'trending' ? 'bg-gray-200' : ''}`}
           onClick={() => setActiveTab('trending')}
         >
@@ -48,12 +47,12 @@ const Collections = () => {
             <tr className="border-b">
               <th className="py-2 px-4 text-left">#</th>
               <th className="py-2 px-4 text-left">Collection</th>
-              <th className="py-2 px-4 text-right">Floor</th>
+              <th className="py-2 px-4 text-right">Floor Price</th>
               <th className="py-2 px-4 text-right">24h Volume</th>
-              <th className="py-2 px-4 text-right">24h Volume Change</th>
-              <th className="py-2 px-4 text-right">On Sale</th>
-              <th className="py-2 px-4 text-right">Unique Owners</th>
+              <th className="py-2 px-4 text-right">7 Days Volume</th>
+              <th className="py-2 px-4 text-right">Monthly Volume</th>
               <th className="py-2 px-4 text-right">Total Volume</th>
+              <th className="py-2 px-4 text-right">Listed NFTs</th>
             </tr>
           </thead>
           <tbody>
@@ -61,26 +60,26 @@ const Collections = () => {
               <tr key={collection.id} className="border-b">
                 <td className="py-2 px-4">{index + 1}</td>
                 <td className="py-2 px-4 flex items-center space-x-4">
-                  <img src={collection.image} alt={collection.name} className="w-10 h-10 object-cover rounded-md" />
+                  <img src={collection.picture_url} alt={collection.name} className="w-10 h-10 object-cover rounded-md" />
                   <span>{collection.name}</span>
                 </td>
                 <td className="py-2 px-4 text-right">
-                  {collection.floorAsk?.price?.amount?.native || 'N/A'} ETH
+                  {collection.floor_price} {collection.floor_price_type?.toUpperCase() || 'N/A'}
                 </td>
                 <td className="py-2 px-4 text-right">
-                  {collection.volume?.['1day'] || 'N/A'} ETH
+                  {collection.daily_volume || 'N/A'} XRP
                 </td>
                 <td className="py-2 px-4 text-right">
-                  {collection.volumeChange?.['1day'] ? `${(collection.volumeChange['1day'] * 100).toFixed(2)}%` : 'N/A'}
+                  {collection.weekly_volume || 'N/A'} XRP
                 </td>
                 <td className="py-2 px-4 text-right">
-                  {collection.onSaleCount || 'N/A'}
+                  {collection.monthly_volume || 'N/A'} XRP
                 </td>
                 <td className="py-2 px-4 text-right">
-                  {collection.ownerCount || 'N/A'}
+                  {collection.total_volume || 'N/A'} XRP
                 </td>
                 <td className="py-2 px-4 text-right">
-                  {collection.volume?.allTime || 'N/A'} ETH
+                  {collection.nfts_listed_count || 'N/A'}
                 </td>
               </tr>
             ))}
