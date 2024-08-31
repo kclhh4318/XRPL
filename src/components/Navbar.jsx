@@ -29,7 +29,7 @@ const Navbar = () => {
               <Link to="/swap" className={`px-4 py-2 rounded-md ${isActive('/swap')}`}>
                 Swap
               </Link>
-              <Link to="/select-nft" className={`px-4 py-2 rounded-md ${isActive('/select-nft')}`}>
+              <Link to="/select-game" className={`px-4 py-2 rounded-md ${isActive('/select-game')}`}>
                 Game
               </Link>
             </div>

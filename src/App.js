@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import MathHighLowGame from "./components/MathHighLowGame/MathHighLowGame";
 import NFTSelector from "./components/NFTSelector";
 import JoinGame from "./pages/JoinGame";
+import GameSelection from "./pages/GameSelection";  // Import the new GameSelection component
 import { WalletProvider, useWallet } from "./contexts/WalletContext";
 import InteractiveBackground from './components/InteractiveBackground';
 
@@ -20,8 +21,8 @@ function App() {
 
   useEffect(() => {
     if (walletAddress && window.location.pathname === '/') {
-      // 지갑이 연결되고 홈 페이지에 있을 때만 컬렉션 페이지로 리다이렉트
-      navigate('/collections');
+      // Redirect to the game selection page when the wallet is connected
+      navigate('/select-game');
     }
   }, [walletAddress, navigate]);
 
@@ -30,7 +31,8 @@ function App() {
       <InteractiveBackground />
       <Navbar />
       <Routes>
-        <Route path="/" element={walletAddress ? <Navigate to="/collections" /> : <Home />} />
+        <Route path="/" element={walletAddress ? <Navigate to="/select-game" /> : <Home />} />
+        <Route path="/select-game" element={<GameSelection />} />  {/* Add route for game selection */}
         <Route path="/collections" element={<Collections />} />
         <Route path="/nft/:id" element={<NFTDetail />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
