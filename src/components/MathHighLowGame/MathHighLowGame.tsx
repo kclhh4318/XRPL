@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
+import { useWallet } from '../../contexts/WalletContext';
 
 interface Card {
   content: string;
@@ -78,6 +78,7 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
   const [pendingMultiplyCard, setPendingMultiplyCard] = useState<Card | null>(null);
   const [cardsToChooseFrom, setCardsToChooseFrom] = useState<Card[]>([]);
   const [showOpponentCards, setShowOpponentCards] = useState<number>(-1);
+  const { walletAddress } = useWallet();
 
   useEffect(() => {
     if (gamePhase === 'createEquation' && timeLeft > 0) {
@@ -124,106 +125,106 @@ const MathHighLowGame: React.FC<MathHighLowGameProps> = ({ selectedNFT }) => {
   };
 
   // 카드 덱 생성 함수 수정
-const createDeck = (): Card[] => {
-  let deck: Card[] = [];
-  const uniqueCards = new Set<string>();
+  const createDeck = (): Card[] => {
+    let deck: Card[] = [];
+    const uniqueCards = new Set<string>();
 
-  NUMBERS.forEach(num => {
-    ['gold', 'silver', 'bronze'].forEach(grade => {
-      const cardKey = `${num}-${grade}`;
-      if (!uniqueCards.has(cardKey)) {
-        deck.push({ content: num, type: 'number', grade: grade as Card['grade'] });
-        uniqueCards.add(cardKey);
+    NUMBERS.forEach(num => {
+      ['gold', 'silver', 'bronze'].forEach(grade => {
+        const cardKey = `${num}-${grade}`;
+        if (!uniqueCards.has(cardKey)) {
+          deck.push({ content: num, type: 'number', grade: grade as Card['grade'] });
+          uniqueCards.add(cardKey);
+        }
+      });
+    });
+
+    SYMBOLS.forEach(symbol => {
+      for (let i = 0; i < 4; i++) {
+        const cardKey = `${symbol}-${i}`;
+        if (!uniqueCards.has(cardKey)) {
+          deck.push({ content: symbol, type: 'symbol', grade: null });
+          uniqueCards.add(cardKey);
+        }
       }
     });
-  });
 
-  SYMBOLS.forEach(symbol => {
-    for (let i = 0; i < 4; i++) {
-      const cardKey = `${symbol}-${i}`;
-      if (!uniqueCards.has(cardKey)) {
-        deck.push({ content: symbol, type: 'symbol', grade: null });
-        uniqueCards.add(cardKey);
-      }
-    }
-  });
-
-  return shuffleArray(deck);
-};
-
-const removeDuplicateCards = (hand: Card[]): Card[] => {
-  const uniqueCards: Card[] = [];
-  const seenCards = new Set<string>();
-
-  hand.forEach(card => {
-    const cardKey = `${card.content}-${card.type}-${card.grade}`;
-    if (!seenCards.has(cardKey)) {
-      uniqueCards.push(card);
-      seenCards.add(cardKey);
-    }
-  });
-
-  return uniqueCards;
-};
-
-const shuffleArray = <T,>(array: T[]): T[] => {
-  return [...array].sort(() => Math.random() - 0.5);
-};
-
-  // drawCard 함수 수정 (중복 방지)
-const drawCard = (currentDeck: Card[], type?: 'number' | 'symbol'): [Card, Card[]] => {
-  const availableCards = type ? currentDeck.filter(card => card.type === type) : currentDeck;
-  const index = Math.floor(Math.random() * availableCards.length);
-  const card = availableCards[index];
-  const updatedDeck = currentDeck.filter((_, i) => i !== currentDeck.indexOf(card));
-  return [card, updatedDeck];
-};
-
-  // 플레이어에게 카드를 나누어주는 함수 수정
-const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
-  const updatedPlayers = [...currentPlayers];
-  let updatedDeck = [...currentDeck];
-
-  // 기본 카드 분배
-  updatedPlayers.forEach(player => {
-    player.hand = [...BASE_CARDS];
-  });
-
-  // 카드가 이미 핸드에 있는지 확인하는 함수
-  const isCardInHand = (player: Player, card: Card) => {
-    return player.hand.some(c => c.content === card.content && c.type === card.type && c.grade === card.grade);
+    return shuffleArray(deck);
   };
 
-  // 숨겨진 카드 분배
-  for (let i = 0; i < updatedPlayers.length; i++) {
-    let [hiddenCard, newDeck] = drawCard(updatedDeck, 'number');
-    while (isCardInHand(updatedPlayers[i], hiddenCard)) {
-      [hiddenCard, newDeck] = drawCard(newDeck, 'number');
-    }
-    updatedPlayers[i].hand.push({ ...hiddenCard, hidden: i !== 0 });
-    updatedDeck = newDeck;
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
+  const removeDuplicateCards = (hand: Card[]): Card[] => {
+    const uniqueCards: Card[] = [];
+    const seenCards = new Set<string>();
 
-  // 오픈 카드 2장 분배
-  for (let j = 0; j < 2; j++) {
-    setGamePhase(j === 0 ? 'dealOpen1' : 'dealOpen2');
-    for (let i = 0; i < updatedPlayers.length; i++) {
-      let [openCard, newDeck] = drawCard(updatedDeck);
-      while (isCardInHand(updatedPlayers[i], openCard)) {
-        [openCard, newDeck] = drawCard(newDeck);
+    hand.forEach(card => {
+      const cardKey = `${card.content}-${card.type}-${card.grade}`;
+      if (!seenCards.has(cardKey)) {
+        uniqueCards.push(card);
+        seenCards.add(cardKey);
       }
-      updatedDeck = await handleNewCard(openCard, i, updatedPlayers, newDeck);
+    });
+
+    return uniqueCards;
+  };
+
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    return [...array].sort(() => Math.random() - 0.5);
+  };
+
+  // drawCard 함수 수정 (중복 방지)
+  const drawCard = (currentDeck: Card[], type?: 'number' | 'symbol'): [Card, Card[]] => {
+    const availableCards = type ? currentDeck.filter(card => card.type === type) : currentDeck;
+    const index = Math.floor(Math.random() * availableCards.length);
+    const card = availableCards[index];
+    const updatedDeck = currentDeck.filter((_, i) => i !== currentDeck.indexOf(card));
+    return [card, updatedDeck];
+  };
+
+  // 플레이어에게 카드를 나누어주는 함수 수정
+  const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
+    const updatedPlayers = [...currentPlayers];
+    let updatedDeck = [...currentDeck];
+
+    // 기본 카드 분배
+    updatedPlayers.forEach(player => {
+      player.hand = [...BASE_CARDS];
+    });
+
+    // 카드가 이미 핸드에 있는지 확인하는 함수
+    const isCardInHand = (player: Player, card: Card) => {
+      return player.hand.some(c => c.content === card.content && c.type === card.type && c.grade === card.grade);
+    };
+
+    // 숨겨진 카드 분배
+    for (let i = 0; i < updatedPlayers.length; i++) {
+      let [hiddenCard, newDeck] = drawCard(updatedDeck, 'number');
+      while (isCardInHand(updatedPlayers[i], hiddenCard)) {
+        [hiddenCard, newDeck] = drawCard(newDeck, 'number');
+      }
+      updatedPlayers[i].hand.push({ ...hiddenCard, hidden: i !== 0 });
+      updatedDeck = newDeck;
       await new Promise(resolve => setTimeout(resolve, 500));
     }
-  }
 
-  setPlayers(updatedPlayers);
-  setDeck(updatedDeck);
-  setGamePhase('firstBet');
-};
+    // 오픈 카드 2장 분배
+    for (let j = 0; j < 2; j++) {
+      setGamePhase(j === 0 ? 'dealOpen1' : 'dealOpen2');
+      for (let i = 0; i < updatedPlayers.length; i++) {
+        let [openCard, newDeck] = drawCard(updatedDeck);
+        while (isCardInHand(updatedPlayers[i], openCard)) {
+          [openCard, newDeck] = drawCard(newDeck);
+        }
+        updatedDeck = await handleNewCard(openCard, i, updatedPlayers, newDeck);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
 
-// handleNewCard 함수 수정
+    setPlayers(updatedPlayers);
+    setDeck(updatedDeck);
+    setGamePhase('firstBet');
+  };
+
+  // handleNewCard 함수 수정
   const handleNewCard = async (card: Card, playerIndex: number, currentPlayers: Player[], currentDeck: Card[]): Promise<Card[]> => {
     const updatedPlayers = [...currentPlayers];
     let updatedDeck = [...currentDeck];
@@ -271,6 +272,35 @@ const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
 
     setPlayers(updatedPlayers);
     return updatedDeck;
+  };
+
+  const handleGameEnd = async (userWon: boolean) => {
+    const payload = {
+      user_wallet_seed: walletAddress,
+      bet_amount: pot,
+      user_won: userWon,
+    };
+
+    console.log("Sending bet resolution to server:", payload);
+
+    try {
+      const response = await fetch('http://34.64.116.169:8000/analyze/resolve_bet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Bet resolution response:", data);
+      } else {
+        console.error("Failed to resolve bet:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error sending bet resolution:", error);
+    }
   };
 
   const handleRemoveCard = (cardToRemove: Card) => {
@@ -483,43 +513,43 @@ const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
 
   const determineWinner = (): string => {
     const validPlayers = players.filter(p => p.result !== null);
-    
+
     if (validPlayers.length === 0) {
       return "모든 플레이어가 유효한 방정식을 만들지 못했습니다.";
     }
-  
+
     const highPlayers = validPlayers.filter(p => p.betChoice === 'high');
     const lowPlayers = validPlayers.filter(p => p.betChoice === 'low');
-  
+
     const getWinnerFromGroup = (group: Player[], targetNumber: number) => {
       return group.reduce((closest, player) => {
         const closestDiff = Math.abs(closest.result! - targetNumber);
         const playerDiff = Math.abs(player.result! - targetNumber);
         if (playerDiff < closestDiff) return player;
-        if (playerDiff === closestDiff) {
-          const closestGrade = Math.max(...closest.equation.map(card => card.grade === 'gold' ? 2 : card.grade === 'silver' ? 1 : 0));
-          const playerGrade = Math.max(...player.equation.map(card => card.grade === 'gold' ? 2 : card.grade === 'silver' ? 1 : 0));
-          return playerGrade > closestGrade ? player : closest;
-        }
         return closest;
       });
     };
-  
+
     const highWinner = highPlayers.length > 0 ? getWinnerFromGroup(highPlayers, 20) : null;
     const lowWinner = lowPlayers.length > 0 ? getWinnerFromGroup(lowPlayers, 1) : null;
-  
+
     if (highWinner && lowWinner) {
       const highDiff = Math.abs(highWinner.result! - 20);
       const lowDiff = Math.abs(lowWinner.result! - 1);
-      if (highDiff < lowDiff) return `${highWinner.name}이(가) 이겼습니다! (High)`;
-      if (lowDiff < highDiff) return `${lowWinner.name}이(가) 이겼습니다! (Low)`;
-      return "무승부입니다.";
+      const userWon = highDiff < lowDiff || (highDiff === lowDiff && highWinner === players[0]);
+      handleGameEnd(userWon);
+      return userWon ? "당신이 이겼습니다! (High)" : "당신이 졌습니다.";
     } else if (highWinner) {
-      return `${highWinner.name}이(가) 이겼습니다! (High)`;
+      const userWon = highWinner === players[0];
+      handleGameEnd(userWon);
+      return userWon ? "당신이 이겼습니다! (High)" : "당신이 졌습니다.";
     } else if (lowWinner) {
-      return `${lowWinner.name}이(가) 이겼습니다! (Low)`;
+      const userWon = lowWinner === players[0];
+      handleGameEnd(userWon);
+      return userWon ? "당신이 이겼습니다! (Low)" : "당신이 졌습니다.";
     }
-  
+
+    handleGameEnd(false);
     return "승자를 결정할 수 없습니다.";
   };
 
@@ -570,48 +600,6 @@ const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
           </div>
         </>
       );
-        return (
-          <>
-            <div className="text-xl font-bold mb-2">남은 시간: {timeLeft}초</div>
-            {currentPlayerIndex === 0 && (
-              <div className="text-green-500 text-xl font-bold">당신의 차례입니다</div>
-            )}
-            <div className="flex justify-center mt-4">
-              <Button onClick={handleCreateEquation} className="mr-2">수식 제출</Button>
-              <Button onClick={() => setPlayers(prevPlayers => {
-                const updatedPlayers = [...prevPlayers];
-                updatedPlayers[0].equation = []; // 사용자 수식 초기화
-                return updatedPlayers;
-              })} variant="outline">수식 초기화</Button>
-            </div>
-            <div className="mt-4 p-4 bg-white rounded-lg">
-              <h3 className="text-lg font-semibold mb-2">당신의 카드:</h3>
-              <div className="flex justify-center">
-                {players[0].hand.map((card, index) => (
-                  <CardComponent 
-                    key={index} 
-                    {...card} 
-                    onClick={() => handleCardClick(card)} 
-                    selected={players[0].equation.some(c => c.content === card.content && c.type === card.type)} 
-                    hidden={card.hidden}
-                  />
-                ))}
-              </div>
-              <h3 className="text-lg font-semibold mt-4 mb-2">당신의 수식:</h3>
-              <div className="flex justify-center">
-                {players[0].equation.map((card, index) => (
-                  <CardComponent 
-                    key={index} 
-                    {...card} 
-                    onClick={() => handleCardClick(card)} 
-                    selected={true} 
-                    hidden={false}
-                  />
-                ))}
-              </div>
-            </div>
-          </>
-        );
         case 'chooseBet':
         return (
           <div className="flex flex-col items-center mt-4">
@@ -657,19 +645,6 @@ const dealCards = async (currentPlayers: Player[], currentDeck: Card[]) => {
     }
   };
 
-  const getUniqueCards = (cards: (Card | null)[]): Card[] => {
-    const uniqueCards: Card[] = [];
-    const seenContents = new Set<string>();
-
-    cards.forEach(card => {
-      if (card && !seenContents.has(card.content)) {
-        uniqueCards.push(card);
-        seenContents.add(card.content);
-      }
-    });
-
-    return uniqueCards;
-  };
 
   const renderGameBoard = () => {
     if (players.length === 0 || !players[0]) {

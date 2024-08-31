@@ -1,8 +1,12 @@
-// src/contexts/WalletContext.js
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { isInstalled, getAddress } from "@gemwallet/api";
 
-const WalletContext = createContext(null);
+// WalletContext의 기본 값 설정 (null 대신 빈 객체로)
+const WalletContext = createContext({
+  walletAddress: "",
+  setWalletAddress: () => {},
+  connectWallet: () => Promise.resolve(),
+});
 
 export const WalletProvider = ({ children }) => {
   const [walletAddress, setWalletAddress] = useState(() => {
